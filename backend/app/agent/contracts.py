@@ -166,3 +166,10 @@ class WorkflowState(StrictModel):
     evidence: list[ToolEvidence] = Field(default_factory=list)
     errors: list[dict] = Field(default_factory=list)
     plan: list[str] = Field(default_factory=list)
+
+
+class EvaluationRun(StrictModel):
+    id: str
+    status: str
+    created_at: datetime
+    payload: dict

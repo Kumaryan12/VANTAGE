@@ -291,3 +291,34 @@ def test_openai_transport_schema_redaction_and_retry(monkeypatch):
     assert len(payloads) == 2
     assert payloads[-1]["store"] is False
     assert payloads[-1]["tools"][1]["parameters"]["additionalProperties"] is False
+
+
+def test_provider_failure_and_scope_mismatch_do_not_publish_answer(agent_client, monkeypatch):
+    client, _ = agent_client
+    monkeypatch.setattr(settings(), "openai_api_key", "sk-test-configured-private")
+
+    class UnavailableProvider:
+        def next(self, *args):
+            raise AppError(
+                "AI_PROVIDER_TIMEOUT", "Mocked transport timeout after bounded retry.", 504
+            )
+
+    monkeypatch.setattr("app.agent.service.configured_provider", UnavailableProvider)
+    result = investigation(client, engine="llm", external_data_consent=True)
+    assert result["status"] == "failed" and result["answer"] is None
+    assert result["error"]["code"] == "AI_PROVIDER_TIMEOUT"
+
+    class OutOfScope:
+        def next(self, *args):
+            return ProviderTurn(tool="get_portfolio_snapshot", arguments={})
+
+    monkeypatch.setattr("app.agent.service.configured_provider", OutOfScope)
+    result = investigation(
+        client,
+        question="Find liquidity risks in uploaded documents.",
+        engine="llm",
+        external_data_consent=True,
+    )
+    assert result["status"] == "failed" and result["error"]["code"] == "TOOL_NOT_ALLOWED"
+    calls = client.get(f"/api/v1/agent/investigations/{result['id']}/tool-calls").json()
+    assert calls[0]["status"] == "denied"

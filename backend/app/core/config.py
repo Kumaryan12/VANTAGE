@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -21,13 +21,13 @@ class Settings(BaseSettings):
     build_commit: str = ""
     openai_api_key: str = ""
     llm_model: str = "gpt-4.1-mini"
-    llm_timeout_seconds: float = 12
-    llm_input_usd_per_million: float | None = None
-    llm_output_usd_per_million: float | None = None
+    llm_timeout_seconds: float = Field(12, ge=1, le=30)
+    llm_input_usd_per_million: float | None = Field(None, ge=0)
+    llm_output_usd_per_million: float | None = Field(None, ge=0)
     embedding_model: str = "text-embedding-3-small"
     document_storage_dir: str = str(ROOT / "artifacts/documents")
-    document_chunk_chars: int = 1800
-    document_chunk_overlap: int = 180
+    document_chunk_chars: int = Field(1800, ge=400, le=3000)
+    document_chunk_overlap: int = Field(180, ge=0, le=499)
 
     @field_validator("model_artifact_dir", "document_storage_dir")
     @classmethod

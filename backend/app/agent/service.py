@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import UTC, datetime
@@ -69,10 +70,14 @@ def classify(question):
     portfolio = any(
         s in q for s in ("portfolio", "holdings", "allocation", "exposure", "concentrat")
     )
-    stress = any(s in q for s in ("fall", "drop", "shock", "scenario", "decline"))
+    stress = bool(
+        re.search(r"\b(?:falls?|falling|drops?|dropping|shocks?|scenarios?|declines?)\b", q)
+    )
     risk = any(
         s in q for s in ("var", "expected shortfall", "contribut", "volatility", "risk calculation")
     )
+    if re.search(r"\bchang(?:e|es|ed)\b.{0,12}\btime\b", q) and not stress:
+        return "changes"
     if (
         any(
             s in q
@@ -225,7 +230,7 @@ class InvestigationQueue:
         self.futures = {}
         self.cancellations = {}
 
-    def submit(self, db, portfolio, owner, request):
+    def submit(self, db, portfolio, owner, request, *, internal_evaluation=False):
         if request.engine == "llm" and not settings().openai_api_key:
             raise AppError(
                 "AI_NOT_CONFIGURED",
@@ -239,7 +244,8 @@ class InvestigationQueue:
             .limit(12)
         ).all()
         if (
-            len(recent) >= 12
+            not internal_evaluation
+            and len(recent) >= 12
             and (datetime.now(UTC) - recent[-1].replace(tzinfo=UTC)).total_seconds() < 60
         ):
             raise AppError(
@@ -577,6 +583,15 @@ class InvestigationQueue:
                     if isinstance(error, AppError)
                     else "Investigation could not produce a verified response; no answer published.",
                 }
+                for pending in db.scalars(
+                    select(AgentToolCall).where(AgentToolCall.investigation_id == ident)
+                ).all():
+                    if pending.payload.get("status") == "running":
+                        pending.payload = {
+                            **pending.payload,
+                            "status": "cancelled" if row.status == "cancelled" else "failed",
+                            "error": row.error,
+                        }
                 row.answer = None
                 row.verification = {"status": "rejected", "unsupported_values_published": 0}
                 row.stage = row.error["message"][:100]

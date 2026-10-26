@@ -34,6 +34,8 @@ jobs:
         run: python backend/scripts/smoke_phase2.py
       - name: PostgreSQL-backed Phase 3 models and reproduction
         run: python backend/scripts/research_report.py --smoke
+      - name: PostgreSQL-backed agent golden workflows and security probes
+        run: python backend/scripts/agent_evaluate.py --no-report
 
   frontend:
     runs-on: ubuntu-24.04

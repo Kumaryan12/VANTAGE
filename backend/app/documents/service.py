@@ -240,6 +240,10 @@ class DocumentQueue:
                     return
                 row.status = "processing"
                 db.commit()
+                if hashlib.sha256(private_path(ident).read_bytes()).hexdigest() != row.content_hash:
+                    raise AppError(
+                        "DOCUMENT_INTEGRITY", "Uploaded PDF failed its content hash.", 409
+                    )
                 # No shell expansion. Child receives no application secrets or network credentials.
                 result = subprocess.run(
                     [sys.executable, "-m", "app.documents.extract", str(private_path(ident))],

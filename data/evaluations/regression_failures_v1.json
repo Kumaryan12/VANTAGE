@@ -1,0 +1,49 @@
+{
+  "initial_run_id": "dc207124-5a40-457c-aad1-a2acb5cbf4a0",
+  "actual_task_success": {
+    "passed": 25,
+    "total": 60,
+    "rate": 0.4166666666666667
+  },
+  "examples": [
+    {
+      "id": "G007",
+      "question": "Calculate portfolio one-day VaR and Expected Shortfall.",
+      "expected_tools": [
+        "get_portfolio_snapshot",
+        "calculate_portfolio_risk"
+      ],
+      "actual_tools": [
+        "get_portfolio_snapshot",
+        "get_portfolio_exposures",
+        "run_stress_scenario"
+      ],
+      "failure": "status; tools; numerical; task"
+    },
+    {
+      "id": "G011",
+      "question": "Show Gaussian VaR and Expected Shortfall for the portfolio.",
+      "expected_tools": [
+        "get_portfolio_snapshot",
+        "calculate_portfolio_risk"
+      ],
+      "actual_tools": [
+        "get_portfolio_snapshot",
+        "get_portfolio_exposures",
+        "run_stress_scenario"
+      ],
+      "failure": "status; tools; numerical; task"
+    },
+    {
+      "id": "G013",
+      "question": "Which forecasting model had the lowest QLIKE?",
+      "expected_tools": [
+        "list_research_experiments",
+        "compare_forecasting_models"
+      ],
+      "actual_tools": null,
+      "failure": "AppError"
+    }
+  ],
+  "diagnosis": "Expected Shortfall incorrectly matched the fall substring; trusted isolated evaluations encountered ordinary per-session rate limits. Routing and evaluation isolation were fixed; expected answers and thresholds were unchanged. Intermediate implementation failures remain in the private registry."
+}

@@ -100,3 +100,83 @@ export function factValue(value: number | string | null, unit: string): string {
       ? value.toExponential(5)
       : value.toFixed(6);
 }
+
+export type FinancialDocument = {
+  id: string;
+  filename: string;
+  content_hash: string;
+  source: string;
+  company: string | null;
+  reporting_period: string | null;
+  publication_date: string | null;
+  uploaded_at: string;
+  status: string;
+  page_count: number;
+  chunk_count: number;
+  version: string;
+  metadata: Record<string, unknown>;
+  error: { code: string; message: string } | null;
+};
+export type Passage = {
+  chunk_id: string;
+  document_id: string;
+  document_name: string;
+  page: number;
+  section: string;
+  text: string;
+  content_hash: string;
+  source: string;
+  reporting_period: string | null;
+  keyword_score: number;
+  semantic_score: number | null;
+  score: number;
+  rank: number;
+  table_structure: string;
+};
+export type SearchResult = {
+  passages: Passage[];
+  method: string;
+  warnings: string[];
+  index_version: string;
+  embedding_usage: Record<string, unknown> | null;
+};
+export type EvaluationRun = {
+  id: string;
+  status: string;
+  created_at: string;
+  payload: {
+    completed_cases: number;
+    total_cases: number;
+    acceptance_passed?: boolean;
+    mode: string;
+    error?: string;
+    metrics?: Record<
+      string,
+      { passed: number; total: number; rate: number | null }
+    >;
+    efficiency?: {
+      elapsed_seconds: number;
+      median_case_seconds: number;
+      max_case_seconds: number;
+      tool_calls: number;
+      input_tokens: number | null;
+      output_tokens: number | null;
+      estimated_cost_usd: number | null;
+    };
+    limitations?: string[];
+    failures?: { id: string; category: string; failure: string }[];
+    cases?: {
+      id: string;
+      category: string;
+      question: string;
+      expected_tools: string[];
+      checks: Record<string, boolean>;
+      passed: boolean;
+      failure: string | null;
+      elapsed_seconds: number;
+      actual: Record<string, unknown>;
+    }[];
+    runtime?: Record<string, unknown>;
+    dataset_sha256?: string;
+  };
+};

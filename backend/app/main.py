@@ -17,7 +17,7 @@ from app.core.errors import AppError
 
 app = FastAPI(
     title="VANTAGE",
-    version="0.3.0",
+    version="0.4.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url=None,

@@ -23,6 +23,8 @@ import {
   type AIStatus,
 } from "@/lib/agent";
 import { ErrorNotice } from "./error-notice";
+import { CitationEvidence, DocumentLibrary } from "./document-library";
+import { AgentEvaluation } from "./agent-evaluation";
 
 export function AIAssistant({
   selection,
@@ -37,6 +39,7 @@ export function AIAssistant({
   const [consent, setConsent] = useState(false);
   const [experiment, setExperiment] = useState("");
   const [active, setActive] = useState("");
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
   const status = useQuery({
     queryKey: ["ai-status"],
     queryFn: () => api<AIStatus>("/v1/agent/status"),
@@ -91,6 +94,9 @@ export function AIAssistant({
           mode: selection.mode,
           dataset_id: selection.dataset_id ?? null,
           experiment_id: experiment || null,
+          document_ids: documentIds,
+          confidence: selection.confidence,
+          window: selection.window,
           external_data_consent: consent,
         }),
       }),
@@ -231,6 +237,39 @@ export function AIAssistant({
             >
               Model comparison example
             </button>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() =>
+                setQuestion(
+                  "Which holdings contribute most to my portfolio risk?",
+                )
+              }
+            >
+              Portfolio risk example
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() =>
+                setQuestion(
+                  "Why is my portfolio concentrated in technology stocks, and what happens if that sector falls 15%?",
+                )
+              }
+            >
+              Sector shock example
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() =>
+                setQuestion(
+                  "Summarize liquidity and debt risks in the uploaded annual report.",
+                )
+              }
+            >
+              Document research example
+            </button>
             {busy && (
               <button
                 type="button"
@@ -320,6 +359,14 @@ export function AIAssistant({
             </div>
           )}
           <div className="evidence-body">
+            {answer.citations.length > 0 && (
+              <div className="agent-citations">
+                <h3>Cited disclosure evidence</h3>
+                {answer.citations.map((c, i) => (
+                  <CitationEvidence key={c.chunk_id + i} citation={c} />
+                ))}
+              </div>
+            )}
             <ul className="risk-warnings">
               {answer.warnings.map((w) => (
                 <li key={w}>{w}</li>
@@ -393,6 +440,12 @@ export function AIAssistant({
           </section>
         </div>
       )}
+      <DocumentLibrary
+        ready={ready}
+        configured={status.data?.configured ?? false}
+        selected={documentIds}
+        onSelected={setDocumentIds}
+      />
       <section className="panel agent-history">
         <div className="panel-heading">
           <div>
@@ -444,6 +497,7 @@ export function AIAssistant({
           )}
         </div>
       </section>
+      <AgentEvaluation ready={ready} />
     </div>
   );
 }

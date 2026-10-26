@@ -1,3 +1,4 @@
+import hashlib
 from datetime import date
 from typing import Annotated
 
@@ -94,6 +95,8 @@ def original(ident: str, session: Browser, db: DB):
     path = private_path(row.id)
     if not path.is_file():
         raise AppError("DOCUMENT_FILE", "Original document is unavailable.", 409)
+    if hashlib.sha256(path.read_bytes()).hexdigest() != row.content_hash:
+        raise AppError("DOCUMENT_INTEGRITY", "Original PDF failed its content hash.", 409)
     return FileResponse(
         path,
         media_type="application/pdf",

@@ -221,7 +221,7 @@ function Workspace() {
         <div className="research-note">
           <ShieldCheck size={17} />
           <div>
-            Evidence investigations<small>Phase 4 · in development</small>
+            Evidence investigations<small>Phase 4 · available</small>
           </div>
         </div>
         <div className="sidebar-bottom">
@@ -238,7 +238,7 @@ function Workspace() {
               : health.isPending
                 ? "Connecting to API"
                 : "Analytics API unavailable"}
-            <span>v0.3</span>
+            <span>v0.4</span>
           </div>
           <div className="profile">
             <div className="avatar">VR</div>

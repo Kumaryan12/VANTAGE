@@ -3,16 +3,25 @@ from sqlalchemy import select
 
 from app.agent.contracts import (
     Activity,
+    EvaluationRun,
     InvestigationDetail,
     InvestigationRequest,
     InvestigationSummary,
     ProviderStatus,
     ToolEvidence,
 )
+from app.agent.evaluation import owned_evaluation
+from app.agent.evaluation import queue as evaluation_queue
 from app.agent.service import detail, owned, queue, summary
 from app.api.routes import DB, Browser, owner, snapshot
 from app.core.config import settings
-from app.database.models import AgentEvidence, AgentInvestigation, AgentStep, AgentToolCall
+from app.database.models import (
+    AgentEvaluation,
+    AgentEvidence,
+    AgentInvestigation,
+    AgentStep,
+    AgentToolCall,
+)
 
 router = APIRouter(prefix="/api/v1/agent", tags=["Financial investigations"])
 
@@ -94,3 +103,38 @@ def evidence(ident: str, session: Browser, db: DB):
             select(AgentEvidence).where(AgentEvidence.investigation_id == ident)
         ).all()
     ]
+
+
+@router.post("/evaluation-runs", response_model=EvaluationRun, status_code=202)
+def evaluate_golden(session: Browser, db: DB):
+    return evaluation_queue.submit(db, owner(session))
+
+
+@router.get("/evaluation-runs", response_model=list[EvaluationRun])
+def evaluations(session: Browser, db: DB, limit: int = Query(10, ge=1, le=30)):
+    rows = db.scalars(
+        select(AgentEvaluation)
+        .where(AgentEvaluation.owner == owner(session))
+        .order_by(AgentEvaluation.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        EvaluationRun(
+            id=r.id,
+            status=owned_evaluation(db, r.id, owner(session)).status,
+            created_at=r.created_at,
+            payload={k: v for k, v in r.payload.items() if k != "cases"},
+        )
+        for r in rows
+    ]
+
+
+@router.get("/evaluation-runs/{ident}", response_model=EvaluationRun)
+def evaluation(ident: str, session: Browser, db: DB):
+    r = owned_evaluation(db, ident, owner(session))
+    return EvaluationRun(
+        id=r.id,
+        status=r.status,
+        created_at=r.created_at,
+        payload=r.payload,
+    )

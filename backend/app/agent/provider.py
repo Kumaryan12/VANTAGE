@@ -1,6 +1,7 @@
 """Provider-agnostic graph interface; optional backend-only OpenAI Responses adapter."""
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -101,10 +102,16 @@ class OpenAIProvider:
         }
         timeout = max(0.1, min(config.llm_timeout_seconds, remaining_seconds))
         last_error = None
+        started = time.monotonic()
         # Exactly one retry, only for transient transport/HTTP failures; no raw errors logged.
         for attempt in range(2):
             try:
-                with httpx.Client(timeout=timeout, follow_redirects=False) as client:
+                with httpx.Client(
+                    timeout=max(
+                        0.1, min(timeout, remaining_seconds - (time.monotonic() - started))
+                    ),
+                    follow_redirects=False,
+                ) as client:
                     response = client.post(
                         "https://api.openai.com/v1/responses",
                         headers={"Authorization": f"Bearer {config.openai_api_key}"},

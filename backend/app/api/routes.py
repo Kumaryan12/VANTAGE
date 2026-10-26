@@ -18,7 +18,13 @@ from app.brokers.demo import DemoBroker
 from app.brokers.kite import KiteBroker, configured, new_client
 from app.core.config import settings
 from app.core.errors import AppError
-from app.database.models import Dataset, ResearchExperiment, RiskRun
+from app.database.models import (
+    AgentInvestigation,
+    Dataset,
+    ResearchDocument,
+    ResearchExperiment,
+    RiskRun,
+)
 from app.database.session import get_db
 from app.ingestion.history import MAX_BYTES, parse_upload, persist_history
 from app.integrations.providers import providers
@@ -43,6 +49,8 @@ def health(request: Request, db: DB):
         db.execute(select(Dataset.id).limit(1))
         db.execute(select(RiskRun.schema_version).limit(1))
         db.execute(select(ResearchExperiment.id).limit(1))
+        db.execute(select(AgentInvestigation.id).limit(1))
+        db.execute(select(ResearchDocument.id).limit(1))
     except Exception:
         raise AppError(
             "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503
