@@ -8,6 +8,7 @@ dependencies = [
   "sqlalchemy>=2.0,<3", "alembic>=1.14,<2", "psycopg[binary]>=3.2,<4",
   "numpy>=2.2,<3", "pandas>=2.2,<4", "pyarrow>=19,<24", "httpx>=0.28,<1",
   "python-multipart>=0.0.20,<1", "kiteconnect>=5,<6",
+  "scipy>=1.14,<2", "arch>=7.2,<9", "lightgbm>=4.6,<5",
 ]
 
 [project.optional-dependencies]
