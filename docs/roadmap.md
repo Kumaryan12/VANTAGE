@@ -1,14 +1,16 @@
 # Delivery roadmap
 
-## Phase 1 — current implementation target
+## Phase 1 — implemented
 
-- [ ] Pure risk engine and analytical tests
-- [ ] Versioned demo portfolio and daily history
-- [ ] FastAPI, persistence, migrations, and validated imports
-- [ ] Secure read-only Kite integration
-- [ ] Optional Alpha Vantage, FRED, and Frankfurter adapters
-- [ ] Working Next.js portfolio/risk/data-source views
-- [ ] CI, Compose, documentation, and workflow verification
+- [x] Pure risk engine and analytical tests
+- [x] Versioned demo portfolio and daily history
+- [x] FastAPI, persistence, migrations, and validated imports
+- [x] Secure read-only Kite integration (mocked authentication/read contracts; live credentials required)
+- [x] Optional Alpha Vantage, FRED, and Frankfurter adapters (Frankfurter live-tested; keyed services contract-tested)
+- [x] Working Next.js portfolio/risk/data-source views
+- [x] CI, Compose configuration, documentation, and local workflow verification
+
+Evidence and precise limits: [verification.md](verification.md). The complete Compose image stack has not been built in this session; documented local startup and PostgreSQL-backed workflows were tested.
 
 ## Phase 2 — advanced risk
 

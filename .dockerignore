@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+**/.venv
+**/__pycache__
+**/*.egg-info
+**/node_modules
+**/.next
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+artifacts
+.pytest_cache
+.ruff_cache

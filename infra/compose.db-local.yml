@@ -1,0 +1,5 @@
+# Optional local Python development against the Compose PostgreSQL service.
+services:
+  db:
+    ports:
+      - "127.0.0.1:55432:5432"
