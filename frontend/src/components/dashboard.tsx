@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-query";
 import {
   Activity,
+  FlaskConical,
+  History,
   ArrowRight,
   BarChart3,
   ChevronDown,
@@ -49,12 +51,23 @@ import { ErrorNotice } from "./error-notice";
 import { Metric, SectorPanel, Holdings } from "./portfolio-panels";
 import { RiskDetail } from "./risk-panels";
 import { Sources } from "./data-sources";
+import { AdvancedRisk } from "./advanced-risk";
+import { StressLab } from "./stress-lab";
+import { RiskRuns } from "./risk-runs";
 
-type Tab = "Overview" | "Portfolio" | "Risk Analytics" | "Data Sources";
+type Tab =
+  | "Overview"
+  | "Portfolio"
+  | "Risk Analytics"
+  | "Stress Testing"
+  | "Risk Runs"
+  | "Data Sources";
 const nav = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Portfolio", icon: Layers3 },
   { name: "Risk Analytics", icon: Activity },
+  { name: "Stress Testing", icon: FlaskConical },
+  { name: "Risk Runs", icon: History },
   { name: "Data Sources", icon: Database },
 ] as const;
 
@@ -118,6 +131,13 @@ function Workspace() {
   const p = portfolio.data;
   const r = risk.data;
   const loading = portfolio.isFetching || risk.isFetching;
+  const selection = {
+    mode,
+    dataset_id: mode === "kite" && dataset ? dataset : undefined,
+    confidence: Number(confidence),
+    window: Number(windowSize),
+  };
+  const riskKey = `${mode}:${dataset}:${confidence}:${windowSize}:${p?.total_value}:${p?.as_of}`;
   async function disconnect() {
     try {
       const result = await api<{ remote_revocation_confirmed: boolean }>(
@@ -211,7 +231,7 @@ function Workspace() {
               : health.isPending
                 ? "Connecting to API"
                 : "Analytics API unavailable"}
-            <span>v0.1</span>
+            <span>v0.2</span>
           </div>
           <div className="profile">
             <div className="avatar">VR</div>
@@ -268,7 +288,11 @@ function Workspace() {
                     ? "A clearer view of your capital."
                     : tab === "Risk Analytics"
                       ? "Understand the shape of risk."
-                      : "Evidence starts at the source."}
+                      : tab === "Stress Testing"
+                        ? "Test the limits of your allocation."
+                        : tab === "Risk Runs"
+                          ? "Every result, reproducible."
+                          : "Evidence starts at the source."}
               </h1>
               <p>
                 {tab === "Data Sources"
@@ -400,6 +424,8 @@ function Workspace() {
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
             />
+          ) : tab === "Risk Runs" ? (
+            <RiskRuns key={mode} mode={mode} />
           ) : (
             <>
               {portfolio.error && <ErrorNotice error={portfolio.error} />}
@@ -591,7 +617,18 @@ function Workspace() {
                       <SectorPanel portfolio={p} />
                     </div>
                   )}
+                  {tab === "Risk Analytics" && (
+                    <AdvancedRisk key={riskKey} selection={selection} />
+                  )}
                   {tab === "Risk Analytics" && r && <RiskDetail risk={r} />}
+                  {tab === "Stress Testing" && (
+                    <StressLab
+                      key={riskKey}
+                      portfolio={p}
+                      selection={selection}
+                      datasets={history.data ?? []}
+                    />
+                  )}
                   {(tab === "Overview" || tab === "Portfolio") && (
                     <Holdings portfolio={p} expanded={tab === "Portfolio"} />
                   )}
@@ -642,7 +679,7 @@ function Workspace() {
               through transparency.
             </span>
             <span>
-              Phase 1 · Portfolio analytics
+              Phase 2 · Quantitative risk
               <LockKeyhole size={12} />
             </span>
           </footer>
