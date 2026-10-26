@@ -18,7 +18,7 @@ from app.brokers.demo import DemoBroker
 from app.brokers.kite import KiteBroker, configured, new_client
 from app.core.config import settings
 from app.core.errors import AppError
-from app.database.models import Dataset, RiskRun
+from app.database.models import Dataset, ResearchExperiment, RiskRun
 from app.database.session import get_db
 from app.ingestion.history import MAX_BYTES, parse_upload, persist_history
 from app.integrations.providers import providers
@@ -37,16 +37,17 @@ def owner(session: BrowserSession):
 
 
 @router.get("/health")
-def health(db: DB):
+def health(request: Request, db: DB):
     try:
         db.execute(text("SELECT 1"))
         db.execute(select(Dataset.id).limit(1))
         db.execute(select(RiskRun.schema_version).limit(1))
+        db.execute(select(ResearchExperiment.id).limit(1))
     except Exception:
         raise AppError(
             "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503
         ) from None
-    return {"status": "ok", "version": "0.2.0", "trading_enabled": False}
+    return {"status": "ok", "version": request.app.version, "trading_enabled": False}
 
 
 @router.get("/session")

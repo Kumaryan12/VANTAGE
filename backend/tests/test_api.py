@@ -31,7 +31,9 @@ def upload(client, content=None, filename="history.csv", adjustment="split_divid
 
 
 def test_demo_workflow_and_audit(client, database):
-    assert client.get("/api/health").json()["status"] == "ok"
+    readiness = client.get("/api/health").json()
+    assert readiness["status"] == "ok"
+    assert readiness["version"] == app.version
     response = client.get("/api/session")
     assert response.cookies.get(COOKIE)
     assert "httponly" in response.headers["set-cookie"].lower()
