@@ -19,8 +19,17 @@ class Settings(BaseSettings):
     fred_api_key: str = ""
     model_artifact_dir: str = str(ROOT / "artifacts/models")
     build_commit: str = ""
+    openai_api_key: str = ""
+    llm_model: str = "gpt-4.1-mini"
+    llm_timeout_seconds: float = 12
+    llm_input_usd_per_million: float | None = None
+    llm_output_usd_per_million: float | None = None
+    embedding_model: str = "text-embedding-3-small"
+    document_storage_dir: str = str(ROOT / "artifacts/documents")
+    document_chunk_chars: int = 1800
+    document_chunk_overlap: int = 180
 
-    @field_validator("model_artifact_dir")
+    @field_validator("model_artifact_dir", "document_storage_dir")
     @classmethod
     def resolve_artifact_dir(cls, value: str) -> str:
         path = Path(value).expanduser()

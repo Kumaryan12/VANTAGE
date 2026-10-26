@@ -2674,3 +2674,197 @@ details ul {
   display: grid;
   gap: 24px;
 }
+
+.agent-terminal {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.agent-terminal h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.agent-provider {
+  padding: 18px 24px;
+  background: #282416;
+  border-block: 1px solid #514832;
+  font-size: 12px;
+  color: #d4c59a;
+}
+.agent-provider.configured {
+  background: #11281f;
+  border-color: #315c49;
+  color: #99cfb8;
+}
+.agent-provider p {
+  font-size: 11px;
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+.agent-request {
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+.agent-request-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.agent-terminal label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 11px;
+  color: #acbec9;
+}
+.agent-terminal textarea,
+.agent-terminal select,
+.agent-terminal input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  background: #101e27;
+  border: 1px solid #334953;
+  border-radius: 5px;
+  padding: 12px;
+  color: #dce8ee;
+  font: inherit;
+  line-height: 1.7;
+}
+.agent-terminal textarea {
+  resize: vertical;
+  font-size: 13px;
+}
+.agent-terminal .form-help {
+  font-size: 11px;
+  color: #91a7b5;
+  line-height: 1.9;
+  margin: 0;
+}
+.agent-terminal .agent-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.8;
+}
+.agent-terminal input[type="checkbox"] {
+  accent-color: #69d3ac;
+  margin-top: 4px;
+}
+.agent-status {
+  padding: 20px 24px;
+  display: grid;
+  gap: 10px;
+  font-size: 12px;
+}
+.agent-status small {
+  font-size: 10px;
+  color: #91a7b5;
+  overflow-wrap: anywhere;
+}
+.agent-findings {
+  display: grid;
+  gap: 14px;
+  font-size: 12px;
+  color: #bdcdd5;
+  line-height: 1.9;
+  padding-left: 18px;
+  margin: 0;
+}
+.verification-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #7ed9b4;
+  font-size: 10px;
+}
+.agent-terminal td {
+  font-size: 11px;
+}
+.agent-terminal td a {
+  color: #8fc9da;
+}
+.agent-terminal .risk-detail-grid {
+  align-items: start;
+}
+.agent-activity ol {
+  margin: 0;
+  padding: 24px 24px 24px 42px;
+  display: grid;
+  gap: 20px;
+  color: #82cbb0;
+}
+.agent-activity li {
+  padding-left: 5px;
+  font-size: 11px;
+}
+.agent-activity strong {
+  display: block;
+  color: #bfccd4;
+  font-weight: 500;
+  line-height: 1.8;
+}
+.agent-activity small,
+.agent-evidence small {
+  display: block;
+  font-size: 9px;
+  color: #8da4b1;
+  line-height: 1.9;
+  margin-top: 6px;
+}
+.agent-evidence article {
+  padding: 20px 24px;
+  border-top: 1px solid #293b47;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.agent-evidence .subtle-badge {
+  display: inline-block;
+  margin-top: 12px;
+}
+.agent-terminal details {
+  margin-top: 15px;
+  font-size: 10px;
+  color: #9fb6c5;
+}
+.agent-terminal summary {
+  cursor: pointer;
+}
+.agent-terminal pre {
+  max-height: 350px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  line-height: 1.8;
+}
+.agent-history td:first-child {
+  min-width: 250px;
+  max-width: 480px;
+  white-space: normal;
+  line-height: 1.8;
+}
+.agent-terminal .heading-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 650px) {
+  .agent-request {
+    padding: 18px 15px;
+  }
+  .agent-request-controls {
+    grid-template-columns: 1fr;
+  }
+  .agent-provider {
+    padding: 16px;
+  }
+  .agent-terminal .panel-heading {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .agent-terminal .panel-heading p {
+    line-height: 1.8;
+  }
+  .agent-status {
+    padding: 18px 15px;
+  }
+}

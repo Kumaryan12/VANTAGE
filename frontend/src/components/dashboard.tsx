@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import {
   Activity,
+  Bot,
   FlaskConical,
   History,
   ArrowRight,
@@ -55,6 +56,7 @@ import { AdvancedRisk } from "./advanced-risk";
 import { StressLab } from "./stress-lab";
 import { RiskRuns } from "./risk-runs";
 import { ResearchTerminal } from "./research-terminal";
+import { AIAssistant } from "./ai-assistant";
 
 type Tab =
   | "Overview"
@@ -63,7 +65,8 @@ type Tab =
   | "Stress Testing"
   | "Risk Runs"
   | "Data Sources"
-  | "Quantitative Research";
+  | "Quantitative Research"
+  | "AI Risk Assistant";
 const nav = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Portfolio", icon: Layers3 },
@@ -71,6 +74,7 @@ const nav = [
   { name: "Stress Testing", icon: FlaskConical },
   { name: "Risk Runs", icon: History },
   { name: "Quantitative Research", icon: BarChart3 },
+  { name: "AI Risk Assistant", icon: Bot },
   { name: "Data Sources", icon: Database },
 ] as const;
 
@@ -217,7 +221,7 @@ function Workspace() {
         <div className="research-note">
           <ShieldCheck size={17} />
           <div>
-            AI investigations<small>Planned · Phase 4</small>
+            Evidence investigations<small>Phase 4 · in development</small>
           </div>
         </div>
         <div className="sidebar-bottom">
@@ -297,7 +301,9 @@ function Workspace() {
                           ? "Every result, reproducible."
                           : tab === "Quantitative Research"
                             ? "Put every forecast to the test."
-                            : "Evidence starts at the source."}
+                            : tab === "AI Risk Assistant"
+                              ? "Investigate with evidence."
+                              : "Evidence starts at the source."}
               </h1>
               <p>
                 {tab === "Data Sources"
@@ -428,6 +434,12 @@ function Workspace() {
                 setDataset(id);
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
+            />
+          ) : tab === "AI Risk Assistant" ? (
+            <AIAssistant
+              key={mode + dataset}
+              selection={selection}
+              ready={!!session.data}
             />
           ) : tab === "Quantitative Research" ? (
             <ResearchTerminal

@@ -1,6 +1,16 @@
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -100,5 +110,59 @@ class ModelGovernanceEvent(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     model_id: Mapped[str] = mapped_column(ForeignKey("forecast_models.id"), index=True)
     owner: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AgentInvestigation(Base):
+    __tablename__ = "agent_investigations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(20))
+    stage: Mapped[str] = mapped_column(String(100))
+    runner_id: Mapped[str] = mapped_column(String(36))
+    question: Mapped[str] = mapped_column(Text)
+    intent: Mapped[str] = mapped_column(String(20))
+    engine: Mapped[str] = mapped_column(String(20))
+    request: Mapped[dict] = mapped_column(JSON)
+    context: Mapped[dict] = mapped_column(JSON)
+    provider: Mapped[dict] = mapped_column(JSON)
+    usage: Mapped[dict] = mapped_column(JSON)
+    verification: Mapped[dict] = mapped_column(JSON)
+    answer: Mapped[dict | None] = mapped_column(JSON)
+    error: Mapped[dict | None] = mapped_column(JSON)
+    cancel_requested: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    elapsed_seconds: Mapped[float | None] = mapped_column(Float)
+
+
+class AgentStep(Base):
+    __tablename__ = "agent_steps"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    investigation_id: Mapped[str] = mapped_column(ForeignKey("agent_investigations.id"), index=True)
+    sequence: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class AgentToolCall(Base):
+    __tablename__ = "agent_tool_calls"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    investigation_id: Mapped[str] = mapped_column(ForeignKey("agent_investigations.id"), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class AgentEvidence(Base):
+    __tablename__ = "agent_evidence"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    investigation_id: Mapped[str] = mapped_column(ForeignKey("agent_investigations.id"), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class AgentEvaluation(Base):
+    __tablename__ = "agent_evaluations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(20))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
