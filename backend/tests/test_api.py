@@ -58,6 +58,16 @@ def test_bad_risk_params(client, params):
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+@pytest.mark.parametrize("confidence,window", [(0.95, 126), (0.99, 126), (0.95, 252), (0.99, 504)])
+def test_browser_query_parameters_parse_as_numbers(client, confidence, window):
+    response = client.get(
+        "/api/risk", params={"mode": "demo", "confidence": str(confidence), "window": str(window)}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["confidence"] == confidence
+    assert response.json()["sample_size"] == window
+
+
 def test_import_ownership_and_demo_separation(client):
     response = upload(client)
     assert response.status_code == 201, response.text
