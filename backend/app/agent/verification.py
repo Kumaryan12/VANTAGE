@@ -8,14 +8,21 @@ from app.risk.artifacts import digest
 from .contracts import Citation, FinalSelection, ValidatedAnswer, VerifiedClaim
 
 
+def essential_fact(key):
+    return key in {
+        "lowest_qlike_model",
+        "matched_observations",
+        "high_regime_observations",
+        "stress.pnl",
+        "stress.loss",
+        "stress.pnl_reconciliation_residual",
+    } or key.endswith(".qlike")
+
+
 def default_selection(evidence):
     facts = [(e, f) for e in evidence for f in e.facts]
     facts.sort(
-        key=lambda pair: (
-            pair[1].key
-            not in ("lowest_qlike_model", "matched_observations", "high_regime_observations"),
-            not pair[1].key.endswith(".qlike"),
-        )
+        key=lambda pair: (not essential_fact(pair[1].key), not pair[1].key.endswith(".qlike"))
     )
     claims = [
         {"evidence_id": e.id, "fact_key": f.key, "value": f.value, "unit": f.unit, "as_of": f.as_of}
@@ -69,14 +76,7 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
                 409,
             )
         verified.append(VerifiedClaim(**f.model_dump(), evidence_id=e.id, source_id=e.source_id))
-    required = {
-        (e.id, f.key)
-        for e in evidence.values()
-        for f in e.facts
-        if f.key == "lowest_qlike_model"
-        or f.key == "matched_observations"
-        or f.key.endswith(".qlike")
-    }
+    required = {(e.id, f.key) for e in evidence.values() for f in e.facts if essential_fact(f.key)}
     if not required.issubset(seen):
         raise AppError(
             "INCOMPLETE_MODEL_COMPARISON",
@@ -128,6 +128,38 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
         )
     findings = []
     for e in evidence.values():
+        sectors = e.data.get("sector_weights")
+        if sectors:
+            largest = max(sectors, key=sectors.get)
+            findings.append(
+                f"{largest} has the largest current sector allocation in the captured snapshot. Current weights do not establish the historical reason for an allocation or its share of volatility."
+            )
+        attribution = e.data.get("attribution")
+        if attribution and attribution.get("assets"):
+            top = max(
+                attribution["assets"], key=lambda asset: asset["component_annualized_volatility"]
+            )
+            findings.append(
+                f"{top['name']} has the largest signed annualized volatility contribution in this saved analysis. Contributions depend on the selected covariance and estimation period; negative contributions are retained."
+            )
+        if e.tool == "run_stress_scenario":
+            authoritative = {f.key: f.value for f in e.facts}
+            total = math.fsum(asset["pnl"] for asset in e.data["assets"])
+            if not math.isclose(total, authoritative["stress.pnl"], rel_tol=1e-12, abs_tol=1e-8):
+                raise AppError(
+                    "STRESS_RECONCILIATION",
+                    "Scenario contributions do not reconcile to authoritative total P&L.",
+                    409,
+                )
+            sectors = e.data["parameters"].get("sector_shocks", {})
+            scope = (
+                ", ".join(sectors)
+                if sectors
+                else "the explicitly selected broad market/security scope"
+            )
+            findings.append(
+                f"The direct hypothetical shock applies to {scope}. Security and sector overrides follow the existing stress engine's replacement rules. Holding P&L reconciles to total portfolio P&L; this scenario is not a forecast."
+            )
         best = next((f for f in e.facts if f.key == "lowest_qlike_model"), None)
         if best:
             findings.extend(
@@ -161,6 +193,25 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
         findings.append(
             "Insufficient authorized evidence. Select accessible research or upload relevant permitted documents; no missing data has been invented."
         )
+    if citations:
+        text = " ".join(c.quote.casefold() for c in citations)
+        topics = [
+            label
+            for label, words in {
+                "liquidity/cash availability": ("liquidity", "cash reserves"),
+                "debt servicing": ("debt", "repayment", "interest"),
+                "refinancing/maturities": ("refinancing", "maturities"),
+                "borrowing covenants": ("covenant",),
+            }.items()
+            if any(word in text for word in words)
+        ]
+        if topics:
+            findings.insert(
+                0,
+                "The cited passages discuss "
+                + ", ".join(topics)
+                + ". These topic labels come from the quoted text; inspect each disclosure and reporting period below.",
+            )
     warnings = list(dict.fromkeys(w for e in evidence.values() for w in e.warnings))
     warnings += [error["message"] for error in state.errors]
     if any(e.synthetic for e in evidence.values()):

@@ -424,7 +424,7 @@ class InvestigationQueue:
                             ) / 1e6
                         row.usage = usage
                         db.commit()
-                        if (usage["input_tokens"] or 0) + (usage["output_tokens"] or 0) > 24_000:
+                        if (usage["input_tokens"] or 0) + (usage["output_tokens"] or 0) > 64_000:
                             raise AppError(
                                 "TOKEN_BUDGET",
                                 "Investigation exceeded its cumulative token budget.",
