@@ -83,6 +83,12 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
             "Model comparison must include every matched QLIKE and its sample/lowest-value qualification.",
             409,
         )
+    if any(e.data.get("passages") for e in evidence.values()) and not selection.citations:
+        raise AppError(
+            "INCOMPLETE_DOCUMENT_EVIDENCE",
+            "Retrieved document conclusions require at least one exact supported citation.",
+            409,
+        )
     citations = []
     for choice in selection.citations:
         e = evidence.get(choice.evidence_id)

@@ -22,6 +22,9 @@ class InvestigationRequest(StrictModel):
     run_ids: list[str] = Field(default_factory=list, max_length=4)
     document_ids: list[str] = Field(default_factory=list, max_length=20)
     company: str | None = Field(None, max_length=80)
+    confidence: float = Field(0.95, ge=0.9, le=0.995)
+    window: int = Field(252, ge=60, le=1260, strict=True)
+    shrinkage: float = Field(0, ge=0, le=1)
     scenario: StressRequest | None = None
     external_data_consent: bool = False
     max_tools: int = Field(8, ge=1, le=8, strict=True)
@@ -155,6 +158,7 @@ class ProviderStatus(StrictModel):
 
 
 class WorkflowState(StrictModel):
+    question: str = ""
     stage: str = "validate"
     steps: int = 0
     tool_count: int = 0

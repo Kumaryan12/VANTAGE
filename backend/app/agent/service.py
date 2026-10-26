@@ -101,12 +101,73 @@ def classify(question):
     return "unsupported"
 
 
-def plan_for(intent, question=""):
+def plan_for(intent, question="", run_ids=None):
     if intent == "models":
-        return ["list_research_experiments", "compare_forecasting_models"]
+        result = ["list_research_experiments", "compare_forecasting_models"]
+        if "shap" in question.lower() or "explanation" in question.lower():
+            result.append("get_model_explanation")
+        return result
     if intent == "documents":
         return ["search_financial_documents"]
-    return []  # Additional analytical/document plans are registered in subsequent vertical slices.
+    if intent == "portfolio":
+        return ["get_portfolio_snapshot", "get_portfolio_exposures"]
+    if intent == "risk":
+        return [
+            "get_portfolio_snapshot",
+            "get_risk_contributions"
+            if "contribut" in question.lower()
+            else "calculate_portfolio_risk",
+        ]
+    if intent == "stress":
+        return ["get_portfolio_snapshot", "get_portfolio_exposures", "run_stress_scenario"]
+    if intent == "changes":
+        return ["compare_risk_runs"] if run_ids else []
+    if intent == "combined":
+        plan = ["get_portfolio_snapshot", "get_portfolio_exposures", "get_risk_contributions"]
+        q = question.lower()
+        if any(word in q for word in ("model", "forecast", "qlike", "lightgbm")):
+            plan.append("compare_forecasting_models")
+        if any(
+            word in q
+            for word in ("document", "report", "filing", "disclosure", "liquidity", "debt")
+        ):
+            plan.append("search_financial_documents")
+        if any(word in q for word in ("fall", "drop", "shock")):
+            plan.append("run_stress_scenario")
+        return plan
+    return []
+
+
+def allowed_tools(intent):
+    model_tools = {
+        "list_research_experiments",
+        "compare_forecasting_models",
+        "get_model_evaluation",
+        "get_conditional_var_backtest",
+        "get_model_explanation",
+    }
+    doc_tools = {"search_financial_documents", "get_document_evidence"}
+    portfolio_tools = {"get_portfolio_snapshot", "get_portfolio_exposures"}
+    risk_tools = {
+        "calculate_portfolio_risk",
+        "get_risk_contributions",
+        "get_saved_risk_run",
+        "compare_risk_runs",
+    }
+    return {
+        "models": model_tools,
+        "documents": doc_tools,
+        "portfolio": portfolio_tools,
+        "risk": portfolio_tools | risk_tools,
+        "stress": portfolio_tools | {"run_stress_scenario"},
+        "combined": model_tools
+        | doc_tools
+        | portfolio_tools
+        | risk_tools
+        | {"run_stress_scenario"},
+        "changes": {"get_saved_risk_run", "compare_risk_runs"},
+        "unsupported": set(),
+    }[intent]
 
 
 def summary(row):
@@ -269,7 +330,11 @@ class InvestigationQueue:
             with Session(engine) as db:
                 row = db.get(AgentInvestigation, ident)
                 request = InvestigationRequest.model_validate(row.request)
-                state = WorkflowState(intent=row.intent, plan=plan_for(row.intent, row.question))
+                state = WorkflowState(
+                    question=row.question,
+                    intent=row.intent,
+                    plan=plan_for(row.intent, row.question, request.run_ids),
+                )
                 row.status = "running"
                 db.commit()
                 deadline = started + request.timeout_seconds
@@ -317,19 +382,22 @@ class InvestigationQueue:
                     "Selected a bounded read-only investigation plan",
                     {"intent": state.intent, "planned_tools": state.plan, "mode": request.engine},
                 )
+                permitted_tools = allowed_tools(state.intent)
                 provider = configured_provider() if request.engine == "llm" else None
                 selection = None
                 plan_index = 0
                 while True:
                     checkpoint("route", "Selected the next approved action")
-                    if state.intent in ("unsupported", "changes"):
+                    if state.intent == "unsupported" or (
+                        state.intent == "changes" and not state.plan
+                    ):
                         selection = default_selection(state.evidence)
                         break
                     if provider:
                         turn = provider.next(
                             row.question,
                             state.evidence,
-                            list(REGISTRY.values()),
+                            [spec for name, spec in REGISTRY.items() if name in permitted_tools],
                             state.errors,
                             deadline - time.monotonic(),
                         )
@@ -366,7 +434,25 @@ class InvestigationQueue:
                     else:
                         selection = default_selection(state.evidence)
                         break
-                    if name not in REGISTRY:
+                    if name not in REGISTRY or name not in permitted_tools:
+                        db.add(
+                            AgentToolCall(
+                                id=str(uuid4()),
+                                investigation_id=ident,
+                                payload={
+                                    "name": str(name)[:80],
+                                    "arguments": json.loads(redact(json.dumps(arguments))),
+                                    "status": "denied",
+                                    "elapsed_ms": 0,
+                                    "error": {
+                                        "code": "TOOL_NOT_ALLOWED",
+                                        "message": "Operation is outside the request allowlist.",
+                                    },
+                                    "evidence_id": None,
+                                },
+                            )
+                        )
+                        db.commit()
                         raise AppError(
                             "TOOL_NOT_ALLOWED",
                             "Provider requested an operation outside the read-only allowlist.",

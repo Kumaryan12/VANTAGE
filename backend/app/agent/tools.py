@@ -410,3 +410,7 @@ def document_evidence(ctx, body):
         ["Historical disclosure, not a current risk measurement."],
         {"document_hash": row.content_hash, "document_version": row.version},
     )
+
+
+# Register financial adapters only after the shared typed registry is initialized.
+from . import analytics as _analytics  # noqa: E402,F401
