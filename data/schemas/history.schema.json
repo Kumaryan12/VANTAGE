@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VANTAGE daily history row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["date", "instrument", "close", "currency"],
+  "properties": {
+    "date": {"type": "string", "format": "date"},
+    "instrument": {"type": "string", "pattern": "^(NSE|BSE):[A-Z0-9&_.-]{1,40}$"},
+    "close": {"type": "number", "exclusiveMinimum": 0},
+    "currency": {"const": "INR"}
+  }
+}

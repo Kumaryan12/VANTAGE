@@ -1,0 +1,55 @@
+{
+  "source": "VANTAGE synthetic fixture v1 / seed 20261026",
+  "as_of": "2026-10-23",
+  "retrieved_at": "2026-10-23T10:00:00+00:00",
+  "holdings": [
+    {
+      "instrument": "NSE:AURORA",
+      "name": "Aurora Technologies",
+      "sector": "Technology",
+      "quantity": 420,
+      "last_price": 1360.6069832339479,
+      "average_price": 2150
+    },
+    {
+      "instrument": "NSE:MERIDIAN",
+      "name": "Meridian Bank",
+      "sector": "Financials",
+      "quantity": 800,
+      "last_price": 890.0167782472024,
+      "average_price": 980
+    },
+    {
+      "instrument": "NSE:HELIX",
+      "name": "Helix Healthcare",
+      "sector": "Healthcare",
+      "quantity": 300,
+      "last_price": 1551.7201424750185,
+      "average_price": 1850
+    },
+    {
+      "instrument": "NSE:ATLAS",
+      "name": "Atlas Industries",
+      "sector": "Industrials",
+      "quantity": 260,
+      "last_price": 1673.8276619902506,
+      "average_price": 2350
+    },
+    {
+      "instrument": "NSE:VERDE",
+      "name": "Verde Energy",
+      "sector": "Energy",
+      "quantity": 500,
+      "last_price": 510.5725675454817,
+      "average_price": 650
+    },
+    {
+      "instrument": "NSE:NORTHSTAR",
+      "name": "Northstar Consumer",
+      "sector": "Consumer",
+      "quantity": 350,
+      "last_price": 800.8772041415763,
+      "average_price": 920
+    }
+  ]
+}

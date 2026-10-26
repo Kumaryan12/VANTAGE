@@ -1,0 +1,265 @@
+import hashlib
+import re
+import secrets
+import time
+from datetime import UTC, date, datetime
+from typing import Annotated, Literal
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
+from fastapi.responses import RedirectResponse
+from kiteconnect.exceptions import KiteException
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
+
+from app.auth.sessions import BrowserSession, browser_session, store
+from app.brokers.demo import DemoBroker
+from app.brokers.kite import KiteBroker, configured, new_client
+from app.core.config import settings
+from app.core.errors import AppError
+from app.database.models import Dataset
+from app.database.session import get_db
+from app.ingestion.history import MAX_BYTES, parse_upload, persist_history
+from app.integrations.providers import providers
+from app.portfolios.schemas import Portfolio, RiskResult
+from app.risk.service import risk_for_portfolio
+
+router = APIRouter(prefix="/api")
+DB = Annotated[Session, Depends(get_db)]
+Browser = Annotated[BrowserSession, Depends(browser_session)]
+Mode = Literal["demo", "kite"]
+Adjustment = Literal["split_dividend_adjusted", "unadjusted", "unknown"]
+
+
+def owner(session: BrowserSession):
+    return hashlib.sha256(session.id.encode()).hexdigest()
+
+
+@router.get("/health")
+def health(db: DB):
+    try:
+        db.execute(text("SELECT 1"))
+        db.execute(select(Dataset.id).limit(1))
+    except Exception:
+        raise AppError(
+            "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503
+        ) from None
+    return {"status": "ok", "version": "0.1.0", "trading_enabled": False}
+
+
+@router.get("/session")
+def session_status(session: Browser):
+    return {
+        "kite_configured": configured(),
+        "kite_connected": bool(session.kite_token),
+        "trading_enabled": False,
+    }
+
+
+def snapshot(mode: Mode, session: BrowserSession):
+    return DemoBroker().portfolio() if mode == "demo" else KiteBroker(session).portfolio()
+
+
+@router.get("/portfolio", response_model=Portfolio)
+def portfolio(session: Browser, mode: Mode = "demo"):
+    return snapshot(mode, session)
+
+
+@router.get("/risk", response_model=RiskResult)
+def risk(
+    session: Browser,
+    db: DB,
+    mode: Mode = "demo",
+    confidence: Literal[0.95, 0.99] = 0.95,
+    window: int = Query(252, ge=60, le=1260),
+    dataset_id: str | None = None,
+):
+    return risk_for_portfolio(
+        db, snapshot(mode, session), owner(session), dataset_id, confidence, window
+    )
+
+
+@router.get("/history")
+def history(session: Browser, db: DB):
+    datasets = db.scalars(
+        select(Dataset).where(Dataset.owner == owner(session)).order_by(Dataset.created_at.desc())
+    ).all()
+    return [{"id": d.id, "provenance": d.provenance} for d in datasets]
+
+
+@router.post("/history/import", status_code=201)
+async def import_history(
+    session: Browser,
+    db: DB,
+    file: UploadFile = File(),
+    source: str = Form(min_length=3, max_length=250),
+    adjustment: Adjustment = Form(),
+):
+    content = await file.read(MAX_BYTES + 1)
+    return persist_history(
+        db, parse_upload(content, file.filename or ""), source, adjustment, owner(session)
+    )
+
+
+class AlphaImport(BaseModel):
+    mapping: dict[str, str] = Field(min_length=1, max_length=10)
+    currency: Literal["INR"]
+    currency_and_venue_verified: Literal[True]
+
+    @model_validator(mode="after")
+    def valid_mapping(self):
+        for instrument, symbol in self.mapping.items():
+            if not re.fullmatch(r"(?:NSE|BSE):[A-Z0-9&_.-]{1,40}", instrument) or not re.fullmatch(
+                r"[A-Z0-9&_.-]{1,60}", symbol
+            ):
+                raise ValueError(
+                    "Use explicit canonical instrument identifiers and provider ticker symbols."
+                )
+        return self
+
+
+@router.post("/history/alpha-vantage", status_code=201)
+def import_alpha(body: AlphaImport, session: Browser, db: DB):
+    frame = providers.adjusted_history(body.mapping, body.currency)
+    mapping_note = ", ".join(f"{k}={v}" for k, v in body.mapping.items())
+    return persist_history(
+        db,
+        frame,
+        f"Alpha Vantage adjusted daily; verified mapping: {mapping_note}",
+        "split_dividend_adjusted",
+        owner(session),
+    )
+
+
+@router.get("/sources")
+def sources():
+    return [
+        {
+            "id": "demo",
+            "name": "Synthetic fixture",
+            "configured": True,
+            "purpose": "Repeatable INR portfolio and history",
+            "note": "Invented securities, fixed seed, versioned observations.",
+        },
+        {
+            "id": "kite",
+            "name": "Zerodha Kite Connect",
+            "configured": configured(),
+            "purpose": "Read-only holdings and account data",
+            "note": "Interactive authorization. Historical-data entitlement is not assumed.",
+        },
+        {
+            "id": "csv",
+            "name": "CSV / Parquet",
+            "configured": True,
+            "purpose": "Independent adjusted daily histories",
+            "note": "Source, INR currency, adjustment and complete coverage required.",
+        },
+        {
+            "id": "alpha",
+            "name": "Alpha Vantage",
+            "configured": bool(settings().alpha_vantage_api_key),
+            "purpose": "Adjusted daily price history",
+            "note": "Requires API key and premium adjusted-daily entitlement; explicit venue mapping.",
+        },
+        {
+            "id": "fred",
+            "name": "FRED",
+            "configured": bool(settings().fred_api_key),
+            "purpose": "Vintage-aware macroeconomic context",
+            "note": "Context only. Never silently used as a forecasting feature.",
+        },
+        {
+            "id": "fx",
+            "name": "Frankfurter",
+            "configured": True,
+            "purpose": "Daily FX reference context",
+            "note": "No API key. Provider availability is checked when requested; no valuation conversion.",
+        },
+    ]
+
+
+@router.get("/context/fx")
+def fx(
+    base: str = Query("USD", pattern=r"^[A-Z]{3}$"),
+    quote: str = Query("INR", pattern=r"^[A-Z]{3}$"),
+):
+    return providers.fx(base, quote)
+
+
+@router.get("/context/macro")
+def macro(
+    series_id: str = Query("VIXCLS", pattern=r"^[A-Z0-9_]{1,30}$"), vintage: date | None = None
+):
+    return providers.macro(series_id, vintage or datetime.now(UTC).date())
+
+
+@router.get("/auth/kite/login")
+def kite_login(request: Request):
+    response = RedirectResponse("/", status_code=303)
+    session = store.get(request, response)
+    client = new_client()
+    session.state = secrets.token_urlsafe(32)
+    session.state_expires = time.time() + 600
+    response.headers["location"] = (
+        client.login_url()
+        + "&"
+        + urlencode({"redirect_params": urlencode({"state": session.state})})
+    )
+    return response
+
+
+@router.get("/auth/kite/callback")
+def kite_callback(
+    request: Request,
+    request_token: str = Query(min_length=1, max_length=512),
+    state: str = Query(min_length=1, max_length=128),
+):
+    response = RedirectResponse(settings().frontend_url + "/?connected=kite", status_code=303)
+    session = store.get(request, response)
+    store.consume_state(session, state)
+    try:
+        data = new_client().generate_session(request_token, api_secret=settings().kite_api_secret)
+        session.kite_token = data["access_token"]
+    except (KiteException, OSError, KeyError, ValueError):
+        raise AppError(
+            "KITE_AUTH_FAILED", "Kite authorization failed. Start a fresh login.", 401
+        ) from None
+    return response
+
+
+@router.post("/auth/kite/logout")
+def kite_logout(session: Browser):
+    revoked = True
+    if session.kite_token:
+        try:
+            KiteBroker(session).logout()
+        except AppError:
+            revoked = False
+    session.state = None
+    return {"connected": False, "remote_revocation_confirmed": revoked}
+
+
+@router.get("/kite/positions")
+def positions(session: Browser):
+    return {
+        "source": "Kite Connect",
+        "excluded_from_holdings_risk": True,
+        "data": KiteBroker(session).positions(),
+    }
+
+
+@router.get("/kite/margins")
+def margins(session: Browser):
+    return {"source": "Kite Connect", "data": KiteBroker(session).margins()}
+
+
+@router.get("/kite/instruments")
+def instruments(
+    session: Browser,
+    exchange: Literal["NSE", "BSE"] = "NSE",
+    limit: int = Query(100, ge=1, le=1000),
+):
+    data = KiteBroker(session).instruments(exchange)
+    return {"source": "Kite Connect", "total": len(data), "data": data[:limit]}
