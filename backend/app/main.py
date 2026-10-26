@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.advanced_risk import router as advanced_router
 from app.api.agent import router as agent_router
+from app.api.documents import router as documents_router
 from app.api.ml import router as ml_router
 from app.api.routes import router
 from app.core.config import settings
@@ -25,6 +26,7 @@ app.include_router(router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
 app.include_router(agent_router)
+app.include_router(documents_router)
 logger = logging.getLogger("vantage")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 # httpx's INFO logger includes URLs and therefore API keys. Disable it.
@@ -45,6 +47,20 @@ def error_response(request: Request, code: str, message: str, status: int, detai
 @app.middleware("http")
 async def request_boundary(request: Request, call_next):
     request.state.request_id = str(uuid4())
+    if request.method == "POST" and request.url.path == "/api/v1/research/documents":
+        # Bound the complete multipart stream before FastAPI can spool an oversized file.
+        upload_limit = 6 * 1024 * 1024
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > upload_limit:
+                return error_response(
+                    request,
+                    "DOCUMENT_SIZE",
+                    "Multipart PDF upload exceeds 6 MB including metadata.",
+                    413,
+                )
+            body.extend(chunk)
+        request._body = bytes(body)
     started = time.monotonic()
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("origin")

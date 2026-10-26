@@ -5,8 +5,6 @@ from dataclasses import replace
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from app.agent.contracts import WorkflowState
 from app.agent.provider import OpenAIProvider, ProviderTurn
@@ -15,34 +13,8 @@ from app.agent.tools import REGISTRY, fact, sealed
 from app.agent.verification import default_selection, verify_and_compose
 from app.core.config import settings
 from app.core.errors import AppError
-from app.database.models import Base
-from app.database.session import get_db
 from app.main import app
 from app.ml.service import queue as research_queue
-
-
-@pytest.fixture
-def agent_client(tmp_path, monkeypatch):
-    engine = create_engine(
-        f"sqlite:///{tmp_path / 'agent.db'}", connect_args={"check_same_thread": False}
-    )
-    Base.metadata.create_all(engine)
-    monkeypatch.setattr(settings(), "model_artifact_dir", str(tmp_path / "models"))
-    monkeypatch.setattr(settings(), "document_storage_dir", str(tmp_path / "documents"))
-    monkeypatch.setattr(settings(), "openai_api_key", "")
-
-    def db():
-        with Session(engine) as session:
-            yield session
-
-    app.dependency_overrides[get_db] = db
-    with TestClient(app) as client:
-        yield client, engine
-    for future in list(queue.futures.values()):
-        future.result(timeout=30)
-    queue.tool_executor.submit(lambda: None).result(timeout=30)
-    app.dependency_overrides.clear()
-    engine.dispose()
 
 
 def completed_research(client):

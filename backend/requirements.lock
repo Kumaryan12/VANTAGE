@@ -42,6 +42,7 @@ pydantic-settings==2.16.1
 pydantic_core==2.50.1
 Pygments==2.21.0
 pyOpenSSL==26.4.0
+pypdf==6.21.2
 pytest==9.1.1
 python-dateutil==3.0.0
 python-dotenv==1.2.4

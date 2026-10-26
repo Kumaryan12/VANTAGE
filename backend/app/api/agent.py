@@ -25,7 +25,7 @@ def provider_status(session: Browser):
         provider="openai",
         model=config.llm_model,
         demo_available=True,
-        embeddings_available=False,
+        embeddings_available=bool(config.openai_api_key),
         message="Configured provider available; external processing requires request consent."
         if config.openai_api_key
         else "AI provider not configured. Deterministic demonstration is available and explicitly labeled.",

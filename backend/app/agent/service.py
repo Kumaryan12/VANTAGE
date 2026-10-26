@@ -104,6 +104,8 @@ def classify(question):
 def plan_for(intent, question=""):
     if intent == "models":
         return ["list_research_experiments", "compare_forecasting_models"]
+    if intent == "documents":
+        return ["search_financial_documents"]
     return []  # Additional analytical/document plans are registered in subsequent vertical slices.
 
 
@@ -508,7 +510,9 @@ class InvestigationQueue:
             self.capacity.release()
 
     def document_resolver(self, db, owner):
-        return None
+        from app.documents.service import resolve_passage
+
+        return lambda passage: resolve_passage(db, owner, passage)
 
 
 queue = InvestigationQueue()

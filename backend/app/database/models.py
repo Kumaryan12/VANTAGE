@@ -166,3 +166,36 @@ class AgentEvaluation(Base):
     status: Mapped[str] = mapped_column(String(20))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ResearchDocument(Base):
+    __tablename__ = "research_documents"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    filename: Mapped[str] = mapped_column(String(200))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    source: Mapped[str] = mapped_column(String(200))
+    company: Mapped[str | None] = mapped_column(String(80))
+    reporting_period: Mapped[str | None] = mapped_column(String(50))
+    publication_date: Mapped[date | None] = mapped_column(Date)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(20))
+    page_count: Mapped[int] = mapped_column(Integer)
+    chunk_count: Mapped[int] = mapped_column(Integer)
+    version: Mapped[str] = mapped_column(String(100))
+    processing: Mapped[dict] = mapped_column(JSON)
+    error: Mapped[dict | None] = mapped_column(JSON)
+
+
+class ResearchDocumentChunk(Base):
+    __tablename__ = "research_document_chunks"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("research_documents.id"), index=True)
+    page: Mapped[int] = mapped_column(Integer)
+    section: Mapped[str] = mapped_column(String(150))
+    text: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    token_counts: Mapped[dict] = mapped_column(JSON)
+    embedding: Mapped[list | None] = mapped_column(JSON)
+    embedding_model: Mapped[str | None] = mapped_column(String(100))
