@@ -22,7 +22,7 @@ Checked locally on 2026-10-26 with Python 3.12, Node 26, Chrome, and PostgreSQL 
 
 Browser workflows cover source selection, 95%/99% confidence, window changes, charts/correlations, risk-run JSON download, holding search, account authentication errors without demo fallback, missing FRED-key errors, historical imports, and mobile navigation. An explicit query-parameter regression discovered by the browser suite now has four backend tests.
 
-Browser verification uses a clean session and no broker or keyed-provider credentials. The optional `PLAYWRIGHT_CHANNEL=chrome` uses installed Chrome; CI installs Playwright Chromium. Screenshots are local ignored artifacts at `artifacts/overview.png`, `artifacts/risk.png`, `artifacts/sources.png`, and `artifacts/mobile.png`.
+Browser verification uses a clean session and no broker or keyed-provider credentials. The optional `PLAYWRIGHT_CHANNEL=chrome` uses installed Chrome; CI uses the preinstalled Chrome on the pinned Ubuntu 24.04 runner. Screenshots are local ignored artifacts at `artifacts/overview.png`, `artifacts/risk.png`, `artifacts/sources.png`, and `artifacts/mobile.png`.
 
 GitHub Actions runs backend checks with a PostgreSQL smoke test and frontend checks with browser tests. Remote execution logs are the source of truth for CI outcomes.
 
@@ -57,3 +57,5 @@ Ignored visual artifacts: `artifacts/phase2-models.png`, `phase2-distribution.pn
 A startup regression test also verifies that `.env.example` relative SQLite URLs resolve to the same repository database when backend/test processes run from different directories.
 
 Final CI exposed a Linux/OpenBLAS layout-sensitive replay delta in the strict zero-difference smoke assertion. Model patch 2.0.1 canonicalizes row-major float64 return/covariance inputs and stress paths; a C/F-layout regression test and exact original/replay model equality assertion cover this. The smoke assertion remains exactly zero rather than accepting an arbitrary financial tolerance.
+
+CI pins Ubuntu 24.04 and uses its preinstalled Google Chrome with Playwright’s supported `chrome` channel. This follows the same browser path validated locally and removes a system-package/browser download step that stalled on one hosted runner. CI verifies the browser version explicitly before testing; no tests were skipped.
