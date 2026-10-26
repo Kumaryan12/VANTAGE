@@ -8,7 +8,7 @@ from app.core.errors import AppError
 from app.portfolios.schemas import Portfolio
 from app.risk.artifacts import frame_payload, metadata, payload_frame, persist_inputs, persist_run
 from app.risk.contracts import ScenarioAvailability, StressRequest, StressResult
-from app.risk.engine import calculate
+from app.risk.engine import asset_returns, calculate
 from app.risk.service import resolve_prices
 from app.risk.stress import NAMED_WINDOWS, historical_replay, hypothetical
 from app.risk.tails import empirical_tail
@@ -132,9 +132,7 @@ def run_stress(
     comparison = None
     if legacy and reference:
         ref_prices, _ = payload_frame(reference)
-        returns = ref_prices.pct_change(fill_method=None).iloc[1:].to_numpy() @ np.array(
-            [h.weight for h in portfolio.holdings]
-        )
+        returns = asset_returns(ref_prices) @ np.array([h.weight for h in portfolio.holdings])
         tails = empirical_tail(-portfolio.total_value * returns, parameters.confidence)
         comparison = {
             "historical_var": tails["var"],

@@ -13,6 +13,7 @@ from app.risk.covariance import (
     spectral_root,
     validated_covariance,
 )
+from app.risk.engine import asset_returns
 from app.risk.parametric import gaussian_risk, volatility_attribution
 from app.risk.simulation import monte_carlo
 from app.risk.stress import historical_replay, hypothetical
@@ -54,6 +55,20 @@ def test_tail_sample_policy():
     assert minimum_observations(0.95) == 60
     assert minimum_observations(0.99) == 100
     assert minimum_observations(0.995) == 200
+
+
+def test_c_and_fortran_input_layouts_are_exactly_reproducible():
+    rng = np.random.default_rng(19)
+    values = rng.normal(0, 0.01, (257, 6))
+    a, meta_a = estimate_covariance(np.array(values, order="C"))
+    b, meta_b = estimate_covariance(np.array(values, order="F"))
+    assert np.array_equal(a, b)
+    assert meta_a == meta_b
+    prices = 100 * np.cumprod(1 + values, axis=0)
+    c = asset_returns(pd.DataFrame(np.array(prices, order="C")))
+    f = asset_returns(pd.DataFrame(np.array(prices, order="F")))
+    assert c.flags.c_contiguous and f.flags.c_contiguous
+    assert np.array_equal(c, f)
 
 
 def test_gaussian_known_single_asset():

@@ -10,6 +10,25 @@ from app.risk.tails import empirical_tail
 METHOD = "historical-current-weights-v1"
 
 
+def asset_returns(prices: pd.DataFrame) -> np.ndarray:
+    """Canonical row-major float64 returns, independent of Pandas block layout.
+
+    CSV pivots and JSON-rehydrated DataFrames can have different C/F strides.
+    Canonical layout prevents BLAS reduction order from changing on replay.
+    """
+    values = np.ascontiguousarray(prices.to_numpy(), dtype=np.float64)
+    if (
+        len(values) < 2
+        or not values.shape[1]
+        or not np.isfinite(values).all()
+        or (values <= 0).any()
+    ):
+        raise AppError(
+            "INVALID_PRICES", "Returns require at least two complete positive price observations."
+        )
+    return np.ascontiguousarray(values[1:] / values[:-1] - 1)
+
+
 def aligned_prices(frame: pd.DataFrame, instruments: list[str]) -> pd.DataFrame:
     required = {"date", "instrument", "close"}
     if not required.issubset(frame.columns):
@@ -95,13 +114,13 @@ def calculate(prices: pd.DataFrame, weights: np.ndarray, confidence: float, wind
     if not 60 <= window <= 1260:
         raise AppError("INVALID_WINDOW", "Window must be between 60 and 1260 daily returns.")
     prices = prices.tail(window + 1)
-    returns = prices.pct_change(fill_method=None).iloc[1:]
+    returns = pd.DataFrame(asset_returns(prices), index=prices.index[1:], columns=prices.columns)
     minimum = minimum_observations(confidence)
     if len(returns) < minimum:
         raise AppError(
             "INSUFFICIENT_HISTORY", f"At least {minimum} aligned daily returns required."
         )
-    portfolio_returns = returns.to_numpy() @ weights
+    portfolio_returns = np.ascontiguousarray(returns.to_numpy()) @ weights
     index, drawdown = scenario_path(portfolio_returns)
     rolling = pd.Series(portfolio_returns).rolling(21).std(ddof=1) * np.sqrt(252)
     covariance = returns.cov().to_numpy()

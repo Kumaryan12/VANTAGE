@@ -6,7 +6,7 @@ from app.core.errors import AppError
 
 
 def validated_covariance(covariance) -> tuple[np.ndarray, dict]:
-    matrix = np.asarray(covariance, dtype=float)
+    matrix = np.ascontiguousarray(covariance, dtype=np.float64)
     if (
         matrix.ndim != 2
         or matrix.shape[0] != matrix.shape[1]
@@ -53,7 +53,7 @@ def validated_covariance(covariance) -> tuple[np.ndarray, dict]:
 
 
 def estimate_covariance(returns, shrinkage: float = 0) -> tuple[np.ndarray, dict]:
-    values = np.asarray(returns, dtype=float)
+    values = np.ascontiguousarray(returns, dtype=np.float64)
     if (
         values.ndim != 2
         or values.shape[0] < 2

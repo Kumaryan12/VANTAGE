@@ -162,7 +162,8 @@ def historical_replay(portfolio: Portfolio, prices: pd.DataFrame, start, end) ->
             "Scenario requires at least two complete, positive aligned price observations.",
         )
     # Scale each adjusted series to today's initial allocated value; hold virtual units fixed.
-    ratios = window.to_numpy() / window.iloc[0].to_numpy()
+    values = np.ascontiguousarray(window.to_numpy(), dtype=np.float64)
+    ratios = values / values[0]
     shocks = ratios[-1] - 1
     result = impact(
         portfolio, shocks, ["adjusted endpoint ratio; fixed initial allocation"] * len(shocks)

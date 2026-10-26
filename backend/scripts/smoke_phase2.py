@@ -34,7 +34,7 @@ def main():
             json={"run_ids": [run["run_id"], replay.json()["replayed_run_id"]]},
         )
         assert compare.status_code == 200, compare.text
-        assert compare.json()["rows"][1]["var_delta"] == 0
+        assert compare.json()["rows"][1]["var_delta"] == 0, compare.json()
     with engine.connect() as connection:
         assert (
             connection.execute(text("SELECT count(*) FROM portfolio_snapshots")).scalar_one() >= 1

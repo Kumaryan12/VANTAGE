@@ -16,7 +16,7 @@ from app.database.models import PortfolioSnapshot, RiskInputArtifact, RiskRun
 from app.portfolios.schemas import Portfolio, Provenance
 from app.risk.contracts import RunMetadata
 
-MODEL_VERSION = "2.0.0"
+MODEL_VERSION = "2.0.1"
 
 
 def digest(payload) -> str:

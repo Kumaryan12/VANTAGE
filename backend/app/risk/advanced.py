@@ -9,7 +9,7 @@ from app.portfolios.schemas import Portfolio
 from app.risk.artifacts import frame_payload, metadata, payload_frame, persist_inputs, persist_run
 from app.risk.contracts import AnalysisRequest, AnalysisResult, Attribution, TailEstimate
 from app.risk.covariance import correlation_matrix, estimate_covariance
-from app.risk.engine import calculate
+from app.risk.engine import asset_returns, calculate
 from app.risk.parametric import gaussian_risk, volatility_attribution
 from app.risk.service import resolve_prices
 from app.risk.simulation import monte_carlo
@@ -91,7 +91,7 @@ def run_analysis(
     # The Phase 1 engine is also the shared date/window/minimum-sample validator.
     legacy = calculate(prices, weights, parameters.confidence, parameters.window)
     prices = prices.tail(parameters.window + 1)
-    returns = prices.pct_change(fill_method=None).iloc[1:].to_numpy()
+    returns = asset_returns(prices)
     covariance, diagnostics = estimate_covariance(returns, parameters.shrinkage)
     means = returns.mean(axis=0)
     historical = empirical_tail(-portfolio.total_value * (returns @ weights), parameters.confidence)

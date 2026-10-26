@@ -34,7 +34,7 @@ Phase 1 was audited before modification at `73fcd8e`: 51 Python tests, backend l
 
 | Phase 2 check | Actual outcome |
 | --- | --- |
-| `pytest -c backend/pyproject.toml backend/tests -q` | **132 passed**; same single upstream TestClient/httpx deprecation warning |
+| `pytest -c backend/pyproject.toml backend/tests -q` | **133 passed**; same single upstream TestClient/httpx deprecation warning |
 | Ruff lint and format | Passed, including numerical modules, schemas, services, migration, tests and PostgreSQL smoke script |
 | Frontend ESLint / TypeScript / Next.js production build | Passed |
 | `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` | **6 passed**: three Phase 1 regressions plus advanced comparison/archive/replay, stress/replay and advanced mobile layout |
@@ -55,3 +55,5 @@ The Gaussian regression fixture independently checks 31,897.072539 INR 95% VaR a
 Ignored visual artifacts: `artifacts/phase2-models.png`, `phase2-distribution.png`, `phase2-attribution.png`, `phase2-stress.png`, and `phase2-mobile-models.png`. Run `DATABASE_URL=… backend/.venv/bin/python backend/scripts/smoke_phase2.py` after migration to reproduce database-backed verification. GitHub Actions now runs that script against PostgreSQL plus the full backend/browser suites.
 
 A startup regression test also verifies that `.env.example` relative SQLite URLs resolve to the same repository database when backend/test processes run from different directories.
+
+Final CI exposed a Linux/OpenBLAS layout-sensitive replay delta in the strict zero-difference smoke assertion. Model patch 2.0.1 canonicalizes row-major float64 return/covariance inputs and stress paths; a C/F-layout regression test and exact original/replay model equality assertion cover this. The smoke assertion remains exactly zero rather than accepting an arbitrary financial tolerance.

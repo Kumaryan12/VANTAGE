@@ -1,8 +1,8 @@
-# Quantitative methodology — Phase 2, model version 2.0.0
+# Quantitative methodology — Phase 2, model version 2.0.1
 
 ## Financial conventions
 
-All calculations run in Python/NumPy with float64 intermediates. Currency is INR; cash-equity holdings are long-only, excluding cash, derivatives, margin funding, open positions, fees, taxes, and liquidity. The UI formats returned numbers and converts input percentage units only.
+All calculations run in Python/NumPy with float64 intermediates. Asset returns and covariance inputs are canonical row-major arrays, so CSV pivots and JSON-rehydrated frames cannot choose different BLAS reduction paths solely because their memory strides differ. Model patch 2.0.1 records this reproducibility correction. Currency is INR; cash-equity holdings are long-only, excluding cash, derivatives, margin funding, open positions, fees, taxes, and liquidity. The UI formats returned numbers and converts input percentage units only.
 
 For quantity q_i and observed price P_i, position value V_i = q_i P_i, V = Σ V_i, and w_i = V_i/V. Sector capital exposure sums these weights; capital HHI is Σw_i². Risk estimates treat V and today's weights as the initial allocation for a future **one observed trading day**. They do not reconstruct past account holdings or trades. Kite price observation timestamps are unavailable: retrieval time and valuation date are retained without claiming prices were observed at that exact instant. Unknown sectors remain Unknown.
 
@@ -83,7 +83,7 @@ Stress outputs may compare with separately eligible current one-day historical V
 
 ## Persistence and reproducibility
 
-Migration 0002 retains legacy records and adds owner-scoped immutable portfolio snapshots and input artifacts. Store the exact valuation snapshot, dated selected estimation prices, scenario prices/reference prices when used, full original-source provenance/hash, normalized model parameters, version 2.0.0, calculation/retrieval/as-of timestamps, NumPy/Pandas/Python/platform versions, seed, simulation count, covariance policy/diagnostics, results, warnings, and validation metadata. Selected input-artifact hashes differ from full provider-history hashes because an estimation window is a subset.
+Migration 0002 retains legacy records and adds owner-scoped immutable portfolio snapshots and input artifacts. Store the exact valuation snapshot, dated selected estimation prices, scenario prices/reference prices when used, full original-source provenance/hash, normalized model parameters, version 2.0.1, calculation/retrieval/as-of timestamps, NumPy/Pandas/Python/platform versions, seed, simulation count, covariance policy/diagnostics, results, warnings, and validation metadata. Selected input-artifact hashes differ from full provider-history hashes because an estimation window is a subset.
 
 Replaying uses saved snapshots and selected price inputs only: no current broker, provider, or fixture lookup. Verify snapshot, artifact, and parameter hashes first; reject unsupported model versions. A new run ID records the replay and compares outputs with the original. Same runtime/inputs/seed reproduce exact tested results; eigenvector/BLAS/platform differences can affect bitwise identity across machines. The comparison explicitly uses rtol=1e−12 and atol=1e−10 and reports a mismatch rather than overwriting history.
 

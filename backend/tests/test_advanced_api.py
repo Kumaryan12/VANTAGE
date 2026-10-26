@@ -49,6 +49,7 @@ def test_comparison_persistence_retrieval_and_replay(client, database):
     replay = client.post(f"/api/v1/risk/runs/{result['run_id']}/replay")
     assert replay.status_code == 200, replay.text
     assert replay.json()["input_hash_matches"] and replay.json()["numerical_results_match"]
+    assert replay.json()["result"]["models"] == result["models"]
     with Session(database) as db:
         assert len(db.scalars(select(PortfolioSnapshot)).all()) == 1
         assert len(db.scalars(select(RiskInputArtifact)).all()) == 1
