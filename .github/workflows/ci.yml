@@ -32,6 +32,8 @@ jobs:
       - run: alembic -c backend/alembic.ini upgrade head
       - name: PostgreSQL-backed Phase 1 and Phase 2 vertical slice
         run: python backend/scripts/smoke_phase2.py
+      - name: PostgreSQL-backed Phase 3 models and reproduction
+        run: python backend/scripts/research_report.py --smoke
 
   frontend:
     runs-on: ubuntu-24.04

@@ -62,6 +62,17 @@ def test_research_job_registry_artifacts_explanations_and_reproduction(research_
     series = client.get(f"/api/v1/ml/experiments/{ident}/series")
     assert series.status_code == 200, series.text
     assert len(series.json()) == 100
+    import math
+
+    expected = (
+        sum(
+            math.log(p["forecast_variance"]) + p["realized_variance_proxy"] / p["forecast_variance"]
+            for p in forecasts[:20]
+        )
+        / 20
+    )
+    assert series.json()[18]["qlike20_lightgbm"] is None
+    assert series.json()[19]["qlike20_lightgbm"] == pytest.approx(expected)
     explanation = client.get(f"/api/v1/ml/models/{model['id']}/explain")
     assert explanation.status_code == 200, explanation.text
     assert abs(explanation.json()["reconstruction_residual"]) < 1e-14
@@ -175,3 +186,15 @@ def test_interrupted_worker_and_artifact_tamper(research_client):
     path = Path(settings().model_artifact_dir) / model["artifact_files"][0]["path"]
     path.write_text("tampered")
     assert client.get(f"/api/v1/ml/models/{model['id']}/artifact").status_code == 409
+
+
+def test_reproduction_runtime_mismatch_is_diagnosed(research_client):
+    client, engine = research_client
+    detail = completed(client, test_size=40, validation_size=30)
+    with Session(engine) as db:
+        experiment = db.get(ResearchExperiment, detail["id"])
+        experiment.runtime = {**experiment.runtime, "lightgbm": "unavailable-version"}
+        db.commit()
+    response = client.post(f"/api/v1/ml/experiments/{detail['id']}/reproduce")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RESEARCH_RUNTIME"

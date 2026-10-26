@@ -126,3 +126,48 @@ def test_rolling_window_and_future_target_mutation(executed):
         [p["forecast_variance"] for p in changed["forecasts"]],
     )
     assert first["regimes"]["thresholds"] == changed["regimes"]["thresholds"]
+
+
+def test_explicit_benchmark_alignment_and_sector_features(executed):
+    from app.core.errors import AppError
+    from app.ml.dataset import prepare_dataset
+    from app.risk.artifacts import payload_frame
+
+    portfolio, payload, request, _, _ = executed
+    prices, source = payload_frame(payload["portfolio_history"])
+    benchmark = prices.iloc[:, :1].copy()
+    supplied = {**payload, "context_history": frame_payload(benchmark, source)}
+    _, features, info, _ = prepare_dataset(portfolio, supplied, request)
+    assert "benchmark_beta_60" in features
+    assert "frozen_sector_dispersion_lag1" in features
+    assert not any("No explicit aligned" in message for message in info["unavailable_features"])
+    supplied["context_history"] = frame_payload(benchmark.iloc[1:], source)
+    with pytest.raises(AppError, match="Saved benchmark dates"):
+        prepare_dataset(portfolio, supplied, request)
+
+
+def test_failed_garch_keeps_null_forecasts_and_common_window_explicit(executed, monkeypatch):
+    from app.core.errors import AppError
+
+    portfolio, payload, request, _, _ = executed
+
+    def failed_fit(*_):
+        raise AppError("GARCH_FIT", "Deliberate convergence failure")
+
+    monkeypatch.setattr("app.ml.research.fit_garch", failed_fit)
+    result = execute_research(
+        portfolio,
+        payload,
+        request,
+        {k: k for k in ("rolling", "ewma", "garch", "lightgbm")},
+        lambda k, n, s: {"path": k + "/" + n, "sha256": "test", "bytes": len(s)},
+    )
+    assert result["models"]["garch"]["status"] == "partial"
+    failed = [p for p in result["forecasts"] if p["model_kind"] == "garch"]
+    assert len(failed) == 60
+    assert all(
+        p["forecast_variance"] is None and p["exception95"] is None and p["failure"] for p in failed
+    )
+    assert result["comparison"]["matched_observations"] == 0
+    assert len(result["comparison"]["excluded_dates"]) == 60
+    assert all(m["metrics"]["qlike"] is None for m in result["comparison"]["models"])

@@ -1,3 +1,4 @@
+import math
 from datetime import date
 
 from fastapi import APIRouter, Query
@@ -163,6 +164,7 @@ def series(
         )
     ).all()
     for model in model_rows:
+        losses = []
         for point in forecasts_for(db, model, start, end):
             row = rows.setdefault(
                 point["target_end"],
@@ -173,6 +175,16 @@ def series(
                     "realized_loss": point["realized_loss"],
                     "regime": point["regime"],
                 },
+            )
+            h = point["forecast_variance"]
+            losses.append(
+                math.log(h) + point["realized_variance_proxy"] / h if h is not None else None
+            )
+            window = losses[-20:]
+            row[f"qlike20_{model.kind}"] = (
+                sum(window) / 20
+                if len(window) == 20 and all(v is not None for v in window)
+                else None
             )
             row[model.kind] = point["forecast_volatility"]
             for field in ("var95", "var99", "exception95", "exception99"):
@@ -207,8 +219,14 @@ def compare_experiments(body: ExperimentCompareRequest, session: Browser, db: DB
             "INCOMPARABLE_EXPERIMENTS",
             "Compare completed experiments using the same versioned dataset and test dates; configurations can be inspected individually for other datasets.",
         )
+    details = [experiment_detail(db, e) for e in rows]
+    if len({tuple(str(d) for d in detail.comparison.excluded_dates) for detail in details}) != 1:
+        raise AppError(
+            "INCOMPARABLE_EXCLUSIONS",
+            "Experiments have different valid-date subsets; inspect them individually rather than rank mismatched metrics.",
+        )
     return ExperimentComparison(
-        experiments=[experiment_detail(db, e) for e in rows],
+        experiments=details,
         warnings=[
             "Dataset and evaluation dates match. Review configurations, exclusions, uncertainty and coverage jointly; no automatic champion is assigned."
         ],

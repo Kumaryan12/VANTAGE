@@ -213,6 +213,10 @@ class RegimeResponse(StrictModel):
 
 
 class ResearchSeriesPoint(StrictModel):
+    qlike20_rolling: float | None
+    qlike20_ewma: float | None
+    qlike20_garch: float | None
+    qlike20_lightgbm: float | None
     date: date
     origin: date
     realized_volatility_proxy: float

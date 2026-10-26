@@ -288,8 +288,10 @@ class ResearchQueue:
                         )
                     )
                 reproduction_match = None
-                if exp.reproduction_of:
-                    old = db.get(ResearchExperiment, exp.reproduction_of)
+                old = (
+                    db.get(ResearchExperiment, exp.reproduction_of) if exp.reproduction_of else None
+                )
+                if old is not None and old.status in ("completed", "partial"):
                     old_models = db.scalars(
                         select(ForecastModel).where(ForecastModel.experiment_id == old.id)
                     ).all()
@@ -366,6 +368,20 @@ def reproduce(db, exp, owner):
     ):
         raise AppError(
             "RESEARCH_VERSION", "Saved research methodology is not supported by this runtime.", 409
+        )
+    current_runtime = runtime_versions()
+    mismatches = [
+        name
+        for name in ("python", "numpy", "pandas", "scipy", "arch", "lightgbm")
+        if exp.runtime.get(name) != current_runtime.get(name)
+    ]
+    if mismatches:
+        raise AppError(
+            "RESEARCH_RUNTIME",
+            "Saved experiment runtime differs for "
+            + ", ".join(mismatches)
+            + "; restore recorded dependencies before reproduction.",
+            409,
         )
     snapshot = db.get(PortfolioSnapshot, exp.snapshot_id)
     artifact = db.get(RiskInputArtifact, exp.input_artifact_id)

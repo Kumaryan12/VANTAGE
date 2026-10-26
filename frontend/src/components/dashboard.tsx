@@ -54,6 +54,7 @@ import { Sources } from "./data-sources";
 import { AdvancedRisk } from "./advanced-risk";
 import { StressLab } from "./stress-lab";
 import { RiskRuns } from "./risk-runs";
+import { ResearchTerminal } from "./research-terminal";
 
 type Tab =
   | "Overview"
@@ -61,13 +62,15 @@ type Tab =
   | "Risk Analytics"
   | "Stress Testing"
   | "Risk Runs"
-  | "Data Sources";
+  | "Data Sources"
+  | "Quantitative Research";
 const nav = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Portfolio", icon: Layers3 },
   { name: "Risk Analytics", icon: Activity },
   { name: "Stress Testing", icon: FlaskConical },
   { name: "Risk Runs", icon: History },
+  { name: "Quantitative Research", icon: BarChart3 },
   { name: "Data Sources", icon: Database },
 ] as const;
 
@@ -208,7 +211,7 @@ function Workspace() {
         <div className="research-note">
           <BarChart3 size={17} />
           <div>
-            Quantitative research<small>Planned · Phase 3</small>
+            Forecast challengers<small>Phase 3 · available</small>
           </div>
         </div>
         <div className="research-note">
@@ -231,7 +234,7 @@ function Workspace() {
               : health.isPending
                 ? "Connecting to API"
                 : "Analytics API unavailable"}
-            <span>v0.2</span>
+            <span>v0.3</span>
           </div>
           <div className="profile">
             <div className="avatar">VR</div>
@@ -292,7 +295,9 @@ function Workspace() {
                         ? "Test the limits of your allocation."
                         : tab === "Risk Runs"
                           ? "Every result, reproducible."
-                          : "Evidence starts at the source."}
+                          : tab === "Quantitative Research"
+                            ? "Put every forecast to the test."
+                            : "Evidence starts at the source."}
               </h1>
               <p>
                 {tab === "Data Sources"
@@ -423,6 +428,13 @@ function Workspace() {
                 setDataset(id);
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
+            />
+          ) : tab === "Quantitative Research" ? (
+            <ResearchTerminal
+              key={mode + dataset}
+              selection={selection}
+              datasets={history.data ?? []}
+              ready={!!session.data}
             />
           ) : tab === "Risk Runs" ? (
             <RiskRuns key={mode} mode={mode} />
