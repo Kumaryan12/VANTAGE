@@ -2,7 +2,7 @@
 
 **AI-Powered Portfolio Risk & Quantitative Research Platform**
 
-VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1 and 2 provide portfolio analytics, advanced quantitative risk, stress testing and reproducible saved runs; later phases add forecasting, investigations, and optimization. Financial results come from tested Python calculations, never an LLM.
+VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–3 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible saved runs and controlled volatility forecasting research; later phases add investigations and optimization. Financial results come from tested Python calculations, never an LLM.
 
 ## Implemented scope
 
@@ -16,7 +16,7 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Next.js dark dashboard with working portfolio/source selection, confidence/window controls, risk/sector charts, holdings search/sort, imports, context retrieval, visible errors, and JSON risk-run export.
 - Local startup, PostgreSQL Compose deployment configuration, numerical/API/security tests, browser workflow tests, and GitHub Actions.
 
-**Planned:** optimization, ML forecasting/model evaluation, document retrieval, LangGraph investigations, and investigation reports. These are not presented as working features. See [roadmap](docs/roadmap.md).
+**Planned:** optimization, document retrieval, LangGraph investigations, and investigation reports. These are not presented as working features. See [roadmap](docs/roadmap.md).
 
 ## Phase 2 — advanced quantitative risk
 
@@ -26,11 +26,11 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Euler marginal/component/percentage volatility contributions, security/sector charts, correlation diagnostics and reconciliation. Negative hedging contributions are retained; undefined zero-risk percentages are null.
 - Direct hypothetical broad/sector/security shocks with documented replacement precedence; historical replay from covered adjusted data; exact endpoint validation; explicit synthetic replay in Demo Mode. No hardcoded historical shocks or invented factor exposures.
 - Migration 0002 stores immutable owner-scoped snapshots and selected dated price inputs, compact results, source/input hashes, parameters and model/runtime versions. Saved runs can be listed, opened, compared and replayed without current provider access.
-- Existing overview, portfolio, sources, broker/authentication and legacy risk endpoints remain functional. No Phase 3 ML features or trading were added.
+- Existing overview, portfolio, sources, broker/authentication and legacy risk endpoints remain functional. Phase 3 extends these interfaces without adding trading.
 
 ### Upgrade and demonstrate
 
-After pulling this version, stop any older backend/frontend processes, apply the migration, and restart using the commands below. No new environment variables or dependencies are required.
+After pulling this version, stop any older backend/frontend processes, apply the migration, and restart using the commands below. Install the current locked dependencies before migration; Phase 3 adds ARCH, LightGBM and SciPy. macOS requires OpenMP (`brew install libomp`); the backend Docker image installs Linux libgomp1.
 
 ```bash
 backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
@@ -44,9 +44,24 @@ backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
 
 See [Phase 1 audit and Phase 2 plan](docs/phase2_audit.md), [mathematical methodology and worked cases](docs/quant_methodology.md), [API contracts](docs/api_contracts.md), and [verification evidence](docs/verification.md).
 
+## Phase 3 — quantitative research
+
+Open **Quantitative Research → Run controlled experiment** to execute rolling, EWMA, Gaussian GARCH(1,1) and LightGBM forecasts of next-observed-day portfolio variance. Inspect matched-date QLIKE/MSE/MAE, rolling errors, conditional 95/99% VaR exceptions and coverage tests, regimes, saved-prediction TreeSHAP, drift, model roles and experiment history. Download actual artifacts/reports or reproduce saved inputs. Jobs run in a bounded background worker; failures stay visible.
+
+The default executed synthetic experiment has 504 returns, development training through 2026-03-13, validation 2026-03-16–2026-06-05 and 100 final targets 2026-06-08–2026-10-23. Rolling QLIKE **-8.334987** was better than LightGBM **-8.318106** (lower is better). This does not establish real-market superiority; all models had zero 99% exceptions in a short synthetic sample. See the [executed report](docs/research/volatility_model_comparison.md), [Phase 2 audit](docs/phase3_audit.md) and [complete research protocol](docs/research_protocol.md).
+
+```bash
+backend/.venv/bin/pip install -r backend/requirements.lock
+backend/.venv/bin/pip install --no-deps -e backend
+backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
+backend/.venv/bin/python backend/scripts/research_report.py
+```
+
+Restart older app processes after upgrading. The CLI generates evidence from actual model runs and validates reproduction. Browser histories belong to their own session. Optional `MODEL_ARTIFACT_DIR` stores private text/JSON checkpoints (ignored by Git); `BUILD_COMMIT` identifies container revisions. Use a single backend worker. Persist/back up database and artifact storage together. Durable identity/session recovery and distributed scheduling remain future work. Phase 4 agents are not implemented.
+
 ## Start locally
 
-Requirements: Python **3.12 recommended** (3.11+ supported), Node **22+**, npm. Demo requires no API keys or running PostgreSQL instance. Commands below start from the repository root.
+Requirements: Python **3.12+** (the locked NumPy/SciPy versions require 3.12+), Node **22+**, npm. Demo requires no API keys or running PostgreSQL instance. Commands below start from the repository root.
 
 ```bash
 cp .env.example .env

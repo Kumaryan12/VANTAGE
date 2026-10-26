@@ -66,3 +66,32 @@ Demo synthetic replay body:
 `scenario_id` is exclusive with explicit `start`/`end`; historical replay cannot accept hypothetical shocks. For real mode, use exact dates or a covered named event and an optional independently owned `scenario_dataset_id`; `dataset_id` independently selects fresh current-estimation history for comparison. A historical scenario dataset may be old but cannot extend beyond the saved valuation date. Missing exact endpoints or cross-asset coverage produces `SCENARIO_COVERAGE`/alignment errors. Synthetic mode returns `scenario_kind=synthetic_replay` and disables actual market events.
 
 Relevant errors: 401 broker authorization/expiry; 404 unauthorized or absent dataset/run (same response to avoid existence leaks); 409 source/input integrity or unavailable model version; 422 invalid confidence, weights, covariance, sample, date, shock, or scenario coverage; 503 bounded engine busy. Validation errors omit raw inputs and secrets. No public order/execution endpoint exists.
+
+## Phase 3 — `/api/v1/ml`
+
+Strict typed schemas, same-origin session authentication, private owner filtering and existing structured errors apply. No broker execution. Dates are ISO observation dates; variance is decimal return², volatility decimal daily standard deviation, loss/VaR INR at the saved snapshot notional.
+
+| Method and suffix | Behavior |
+| --- | --- |
+| POST `/train` or `/backtest` | Same controlled four-model workflow; `ResearchRequest` (defaults/bounds in OpenAPI), return 202 `JobSummary` with id; busy capacity 503 |
+| GET `/jobs/{id}` | Queued/running/completed/partial/failed/interrupted, progress/stage and typed error |
+| GET `/experiments?limit=20&offset=0` | Owner's recent jobs, SQL pagination |
+| GET `/experiments/{id}` | Parameters, dataset/protocol/runtime, model ids, matched metrics, warnings and reproduction status |
+| POST `/experiments/{id}/reproduce` | 202 new job using immutable inputs and saved parameters after hash/version verification |
+| POST `/experiments/compare` | `experiment_ids` (2–4 distinct); require completed results with identical dataset hash/test dates and excluded-date subsets; inspect configs/metrics, no automatic winner |
+| GET `/models?experiment_id=…` | Four saved registry models; missing during active/failed pre-persistence jobs is an explicit empty list |
+| GET `/models/{id}` | Kind/role/status, configuration/search, refit lineage, metrics, latest unscored forecast, importance/drift, artifacts and governance audit |
+| GET `/models/{id}/forecasts?start=…&end=…` | Scored predictions, origin/availability/target dates, actual proxy/return/loss, h/sigma/VaR/exceptions, source/version, features/missing/floor/failure and checkpoint id |
+| GET `/models/{id}/metrics?start=…&end=…` | Full matched four-model comparison containing this model; not a mismatched individual score |
+| GET `/comparison?experiment_id=…&start=…&end=…` | Shared valid-date metrics, requested/matched/excluded dates, coverage and paired uncertainty |
+| GET `/var-backtests?experiment_id=…` | Same comparison/coverage contract; supports start/end |
+| GET `/regimes?experiment_id=…` | Fixed training thresholds, dated origin indicators and full-test per-regime metrics |
+| GET `/experiments/{id}/series?start=…&end=…` | Backend-generated observed absolute return/loss, all four sigma and 95/99% VaR/exception series, 20-target rolling QLIKE within selected window |
+| GET `/models/{id}/explain?target=…` | LightGBM saved-point TreeSHAP, feature values, raw/bias/floor reconciliation and sensitivity; default latest scored target |
+| GET `/models/{id}/artifact` | Authorized ZIP of checksum-verified text/JSON checkpoints; unavailable/corrupt files raise errors |
+| POST `/models/{id}/governance` | `role`, written `rationale` (>=20 chars), `acknowledge_limitations:true`; audited manual review; champion needs complete >=100-common-date model |
+| GET `/experiments/{id}/report` | `{markdown: …}` generated from saved actual evidence; unavailable sections explicit |
+
+Training supports expanding/rolling estimation, bounded history/train/validation/test windows, refit cadence, rolling 20/60, fixed EWMA lambda, variance floor, deterministic LightGBM search/seed/rounds/learning rate, basic/full features and optional aligned context dataset/benchmark instrument. No future or mixed-mode context is accepted. See [research protocol](research_protocol.md) for the exact boundaries.
+
+A sample request is `{ "mode":"demo", "scheme":"expanding", "test_size":100, "max_trees":120, "search_candidates":3, "seed":42 }`. Poll the returned id, then request its models/comparison. Failed fits remain null with failures; low-sample statistical tests are null with reasons rather than zero. Model origins use observed dates; the unscored final prediction has no invented next-date. Authentication/ownership errors remain 401/404, invalid inputs/windows 422, ineligible/not-ready evidence or integrity/version failures use structured errors (typically 409). Jobs are bounded to one per backend process; interrupted jobs do not silently resume.

@@ -38,3 +38,10 @@ Stress calculations use direct per-position P&L or fixed-initial-allocation buy-
 The frontend reuses the existing sidebar, metric/panel/table patterns, Recharts, and query client. Risk Analytics adds a calculate-and-save comparison, histogram, attribution and audit evidence; Stress Testing adds executable scenario forms and impact inspection; Risk Runs provides owned pagination, comparison, saved-snapshot inspection, and replay. Existing portfolio/overview/source views remain functional.
 
 Relative SQLite file URLs resolve against the repository root, so Alembic, root backend startup and frontend-launched browser-test processes use the same database. Absolute and in-memory SQLite URLs are preserved.
+
+
+## Phase 3 extension
+
+`app/ml` separates contracts, immutable dataset capture, point-in-time features, actual statistical/boosted models, evaluation, pure walk-forward execution, private artifacts, report rendering and persistence services. `/api/v1/ml` supplies typed asynchronous jobs and owned evidence. The worker consumes a saved portfolio snapshot and dated artifact without brokerage/network access, then atomically saves compact forecasts/model metadata. Migration 0003 adds four registry tables, preserving migrations 0001/0002 and legacy APIs.
+
+A one-job background executor and explicit interrupted-job state support the current single-process local deployment. Model text/JSON lives outside relational rows in a checksummed persistent volume; database and artifact backups must remain consistent. Governance is explicit and audited, never metric-selected automatically. Existing ephemeral browser ownership remains a recovery limitation. The research frontend consumes only backend metrics/series/explanations; Phase 4 agents remain absent. See [research protocol](research_protocol.md) for component conventions, storage and scientific limits.

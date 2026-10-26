@@ -12,3 +12,7 @@ Kite account credentials are entered only on Zerodha's official website. The UI 
 
 
 Phase 2 persists private holdings snapshots and selected dated histories so runs can be replayed. These records, their compact results and provenance are session-owned; retrieval, comparison and replay verify ownership before returning data. Tokens remain memory-only and are never persisted in these records. Input hashes detect changed snapshots, artifacts or model parameters before replay. No arbitrary model code or user-provided covariance/exposure script is accepted. Request bounds and a single-calculation semaphore cap simulation work. Durable identity/retention recovery after session expiry or restart remains unimplemented; database persistence must not be mistaken for durable authentication.
+
+## Phase 3 model evidence
+
+Research jobs/models/forecasts/reports/artifact ZIPs use the existing opaque session owner. No model uploads, pickle loading, brokerage orders or LLM tools are introduced. Immutable input hashes and text/JSON checkpoint path containment/SHA-256 checks protect reproduction; artifacts live outside DB rows and public static files. Mutation origin checks apply to training and governance. One bounded worker and bounded histories/search/refits limit local work; multi-user quotas and distributed scheduling remain unimplemented. Ephemeral sessions cannot recover private records after lost/expired identity; persistent rows/artifacts require future retention/backup policy. See research_protocol.md.

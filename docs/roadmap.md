@@ -27,9 +27,18 @@ Evidence and precise limits: [verification.md](verification.md). The complete Co
 
 No verified actual market-event loss is claimed without a permitted covered dataset. Common-date exchange-calendar gaps cannot be independently certified. Full Compose image builds remain unverified; local processes and PostgreSQL are tested. Durable identity/session recovery, storage retention and public deployment remain Phase 6 work.
 
-## Phase 3 — ML research
+## Phase 3 — implemented
 
-Rolling/EWMA/GARCH benchmarks, lagged features, chronological splits, training-only preprocessing, walk-forward LightGBM, QLIKE and volatility errors, Kupiec/Christoffersen coverage, regime stability, ablations, versioned model registry. Report measured out-of-sample results only.
+- [x] Rolling/EWMA/actual ARCH GARCH and LightGBM portfolio conditional variance models
+- [x] Lagged point-in-time features, strict source alignment, training-only imputation, bounded pre-test validation
+- [x] Expanding/rolling walk-forward refits with saved chronological lineage
+- [x] Matched QLIKE/MSE/MAE, rolling loss diagnostics and descriptive paired uncertainty
+- [x] Phase 2 Gaussian conditional VaR, Kupiec/Christoffersen/conditional coverage with sparse-sample handling
+- [x] Training-threshold regime analysis, actual saved-origin TreeSHAP, gain importance, drift and sensitivity
+- [x] Owned asynchronous registry, checksum artifacts, reproduction, manual model-role audit
+- [x] Functional research terminal, executed synthetic report, numerical/API/browser/PostgreSQL regression evidence
+
+[Report](research/volatility_model_comparison.md) and [protocol/limitations](research_protocol.md). Synthetic evidence does not establish economic ML superiority. Future research includes independent point-in-time market datasets, explicit feature ablation studies, richer tail models and multivariate covariance. Distributed workers, persistent identity, retention and deployment remain Phase 6.
 
 ## Phase 4 — agentic investigations
 
