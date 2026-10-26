@@ -2,7 +2,7 @@
 
 **AI-Powered Portfolio Risk & Quantitative Research Platform**
 
-VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phase 1 provides a working portfolio-to-risk workflow; later phases add forecasting, investigations, and optimization. Financial results come from tested Python calculations, never an LLM.
+VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1 and 2 provide portfolio analytics, advanced quantitative risk, stress testing and reproducible saved runs; later phases add forecasting, investigations, and optimization. Financial results come from tested Python calculations, never an LLM.
 
 ## Implemented scope
 
@@ -16,7 +16,33 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Next.js dark dashboard with working portfolio/source selection, confidence/window controls, risk/sector charts, holdings search/sort, imports, context retrieval, visible errors, and JSON risk-run export.
 - Local startup, PostgreSQL Compose deployment configuration, numerical/API/security tests, browser workflow tests, and GitHub Actions.
 
-**Planned:** Expected Shortfall, Gaussian/Monte Carlo VaR, stress tests, optimization, ML models, model comparison, document retrieval, LangGraph investigations, and report generation. These are not presented as working features. See [roadmap](docs/roadmap.md).
+**Planned:** optimization, ML forecasting/model evaluation, document retrieval, LangGraph investigations, and investigation reports. These are not presented as working features. See [roadmap](docs/roadmap.md).
+
+## Phase 2 — advanced quantitative risk
+
+- Historical, analytical Gaussian and correlated Gaussian Monte Carlo **VaR and Expected Shortfall**, with validated custom confidence from 90% to 99.5%.
+- Fractional empirical ES tail mass; explicit one-day INR loss conventions; daily means and full sample covariance; optional user-selected identity shrinkage with PSD/rank/condition/correction diagnostics.
+- Seeded spectral PSD simulation (10,000 default, 2,000–100,000 allowed), interactive P&L histogram, VaR/ES cutoffs, value/return quantiles and conditional Monte Carlo sampling errors.
+- Euler marginal/component/percentage volatility contributions, security/sector charts, correlation diagnostics and reconciliation. Negative hedging contributions are retained; undefined zero-risk percentages are null.
+- Direct hypothetical broad/sector/security shocks with documented replacement precedence; historical replay from covered adjusted data; exact endpoint validation; explicit synthetic replay in Demo Mode. No hardcoded historical shocks or invented factor exposures.
+- Migration 0002 stores immutable owner-scoped snapshots and selected dated price inputs, compact results, source/input hashes, parameters and model/runtime versions. Saved runs can be listed, opened, compared and replayed without current provider access.
+- Existing overview, portfolio, sources, broker/authentication and legacy risk endpoints remain functional. No Phase 3 ML features or trading were added.
+
+### Upgrade and demonstrate
+
+After pulling this version, stop any older backend/frontend processes, apply the migration, and restart using the commands below. No new environment variables or dependencies are required.
+
+```bash
+backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
+```
+
+1. Open Demo Mode, then **Risk Analytics**. Keep the existing historical charts or use **Advanced quantitative risk → Calculate and save**.
+2. Adjust confidence, seed, simulation count or covariance policy; compare all three VaR/ES estimates. Inspect the distribution, attribution, numerical uncertainty and audit evidence. Export the saved comparison if desired.
+3. Open **Stress Testing**. Run a broad shock, add a sector/security override, and inspect exact applied mappings and reconciled P&L. Switch to synthetic replay, choose the covered fixture window, and run it. Actual pandemic/2022 events are disabled without actual covered market data.
+4. Open **Risk Runs**, select 2–4 analyses or scenarios of the same kind, and compare backend-computed deltas. Open a saved result and **Replay saved inputs** to verify input/numerical agreement. Archived outputs retain their original portfolio/parameters, independently of current controls.
+5. For real historical replay, authorize Kite and import permitted adjusted histories. A separate older scenario dataset can be chosen; fresh current history is independently required for a one-day risk comparison.
+
+See [Phase 1 audit and Phase 2 plan](docs/phase2_audit.md), [mathematical methodology and worked cases](docs/quant_methodology.md), [API contracts](docs/api_contracts.md), and [verification evidence](docs/verification.md).
 
 ## Start locally
 
@@ -39,7 +65,7 @@ npm ci
 npm run dev
 ```
 
-Open **http://localhost:3000**. Demo Mode is selected by default. The UI requests a session, loads the portfolio and risk API, and plots the resulting data. Use **Risk Analytics** for rolling volatility, drawdown and correlations; **Portfolio** for search/sort; **Data Sources** for imports and optional integrations. Health: http://localhost:8000/api/health. OpenAPI: http://localhost:3000/api/docs.
+Open **http://localhost:3000**. Demo Mode is selected by default. The UI requests a session, loads the portfolio and risk API, and plots the resulting data. Use **Risk Analytics** for advanced model comparison, simulation, volatility attribution, rolling volatility, drawdown and correlations; **Portfolio** for search/sort; **Data Sources** for imports and optional integrations. Health: http://localhost:8000/api/health. OpenAPI: http://localhost:3000/api/docs.
 
 Use `localhost:3000` consistently. If using a different browser origin, set `FRONTEND_URL` to that exact origin and restart the backend; mutation requests enforce this setting. Keep `--no-access-log` to prevent callback query tokens appearing in web access logs. Next.js request logging is also disabled.
 
@@ -81,7 +107,7 @@ date,instrument,close,currency
 2026-01-02,NSE:SYMBOL,124.10,INR
 ```
 
-This illustrates the schema; these two invented rows are insufficient for risk. Supply at least 61 observations per holding (101 for 99% VaR), exactly aligned dates, strictly positive finite prices, explicit source/permissions, and confirmed split/dividend adjustment. History must end within seven calendar days of the snapshot and cannot extend beyond it. Maximum file size 5 MB / 50,000 rows / 50 instruments. Unknown or unadjusted imports cannot produce risk. Session ownership controls access; a browser restart/server restart may require importing again. Real data is never merged with demo fixtures.
+This illustrates the schema; these two invented rows are insufficient for risk. Supply at least 61 observations per holding (101 for 99% risk, 201 for 99.5%), exactly aligned dates, strictly positive finite prices, explicit source/permissions, and confirmed split/dividend adjustment. History must end within seven calendar days of the snapshot and cannot extend beyond it. Maximum file size 5 MB / 50,000 rows / 50 instruments. Unknown or unadjusted imports cannot produce risk. Session ownership controls access; a browser restart/server restart may require importing again. Real data is never merged with demo fixtures.
 
 - **Alpha Vantage:** set `ALPHA_VANTAGE_API_KEY` with adjusted-daily endpoint entitlement. In Data Sources, enter an explicit mapping such as `{"BSE:RELIANCE":"RELIANCE.BSE"}` and attest currency, venue, identity and permissions. Do not map BSE prices to an NSE holding. Missing coverage, subscription limits or rate limits produce errors; no partial dataset is persisted. The adapter requests full adjusted daily history; oversized histories are rejected by import limits.
 - **FRED:** set `FRED_API_KEY`. Fetch VIX, Treasury yields or federal funds observations. The API also accepts an explicit `vintage` date. Missing values remain null, and observation/vintage dates are retained. Context is excluded from risk and ML features.
@@ -102,7 +128,7 @@ All providers require network access; optional live services can fail independen
 | `FRED_API_KEY` | Optional backend-only macro credential |
 | `POSTGRES_PASSWORD` | Compose local password; replace for any nonlocal environment |
 
-No secret uses the `NEXT_PUBLIC_` prefix. Do not commit `.env` or private data.
+Phase 2 needs no additional credentials. No secret uses the `NEXT_PUBLIC_` prefix. Do not commit `.env` or private data.
 
 ## Validate
 
@@ -126,7 +152,9 @@ Regenerate the deterministic demo with `backend/.venv/bin/python data/sample/gen
 
 Volatility uses sample standard deviation and 252 observed days/year. Historical VaR uses the inverse empirical CDF of **loss = −return**, at a **one-trading-day** horizon. All-gain samples can legitimately have negative VaR. The displayed path applies today's weights to past adjusted returns and is **not actual historical account performance**. Numbers include window, confidence, sample size, source and as-of metadata. See [formulas and assumptions](docs/quant_methodology.md).
 
-Holdings analysis excludes cash, derivatives, margin funding, positions, execution costs, taxes and liquidity. Kite sector data is Unknown. Uploaded adjustment, data permissions, security mappings, and continuity are user assertions; the application cannot independently certify them. VaR does not bound maximum possible loss or guarantee future coverage. Risk-minimizing investment recommendations are outside Phase 1.
+Holdings analysis excludes cash, derivatives, margin funding, positions, execution costs, taxes and liquidity. Kite sector data is Unknown. Uploaded adjustment, data permissions, security mappings, and continuity are user assertions; the application cannot independently certify them. VaR does not bound maximum possible loss or guarantee future coverage. Risk-minimizing investment recommendations remain planned.
+
+Private saved runs currently belong to their initiating active browser session. Server restart or expiry invalidates that session; durable identity/recovery is planned. Stored rows remain private and are not reassigned to new sessions. Historical calendar continuity and adjustment status remain source assertions; named market events require genuine coverage. Monte Carlo sampling noise does not include historical parameter uncertainty or model risk.
 
 The application is designed for local single-user research. Public deployment requires identity, rate limiting, TLS, durable encrypted sessions, retention, backups and audit authorization. [Security boundary](docs/security.md).
 
@@ -143,4 +171,4 @@ infra/         local PostgreSQL development override
 .github/       verification workflow
 ```
 
-Architecture: Browser → Next.js same-origin proxy → FastAPI → pure numerical engine / read-only broker / independent providers → SQLAlchemy/PostgreSQL. [Architecture and plan](docs/architecture.md). Project conventions: [AGENTS.md](AGENTS.md).
+Architecture: Browser → Next.js same-origin proxy → FastAPI → pure numerical engine / read-only broker / independent providers → SQLAlchemy/PostgreSQL, with immutable snapshot/input artifacts for Phase 2 replay. [Architecture and plan](docs/architecture.md). Project conventions: [AGENTS.md](AGENTS.md).

@@ -113,7 +113,20 @@ def metadata(
         input_hash=combined_hash,
         artifact_hash=artifact.content_hash,
         historical_data_hash=provenance.content_hash if provenance else None,
-        data_source_ids=[portfolio.source] + ([provenance.source] if provenance else []),
+        data_source_ids=[portfolio.source]
+        + ([parameters.dataset_id] if parameters.dataset_id else [])
+        + (
+            [parameters.scenario_dataset_id]
+            if getattr(parameters, "scenario_dataset_id", None)
+            else []
+        )
+        + (
+            ["demo-fixture-v1"]
+            if portfolio.synthetic
+            and any(artifact.payload.get(key) for key in ("estimation", "reference", "scenario"))
+            else []
+        )
+        + ([provenance.source] if provenance else []),
         horizon="1 observed trading day"
         if methodology == "risk_comparison"
         else "Scenario window / instantaneous direct shock; see parameters",
@@ -136,7 +149,14 @@ def metadata(
         },
         validation={
             "currency": "INR",
-            "full_cross_asset_date_alignment": True,
+            "full_cross_asset_date_alignment": True
+            if provenance or artifact.payload.get("reference")
+            else None,
+            "reference_history_hash": artifact.payload.get("reference", {})
+            .get("provenance", {})
+            .get("content_hash")
+            if artifact.payload.get("reference")
+            else None,
             "exchange_calendar_completeness": "source assertion; not independently certified",
             "adjustment": provenance.adjustment
             if provenance
@@ -185,5 +205,18 @@ def replay_inputs(db: Session, run: RiskRun, owner: str):
     ):
         raise AppError(
             "INPUT_INTEGRITY", "Persisted replay inputs failed their content-hash check.", 409
+        )
+    expected_hash = digest(
+        {
+            "snapshot": snapshot.content_hash,
+            "artifact": artifact.content_hash,
+            "parameters": run.parameters,
+            "model_version": MODEL_VERSION,
+            "methodology": run.methodology,
+        }
+    )
+    if expected_hash != run.input_hash:
+        raise AppError(
+            "INPUT_INTEGRITY", "Saved model parameters failed their input-hash check.", 409
         )
     return Portfolio.model_validate(snapshot.payload), artifact.payload

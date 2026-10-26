@@ -285,6 +285,10 @@ class RunSummary(StrictModel):
     historical_es: float | None
     stress_pnl: float | None
     replayable: bool
+    gaussian_var: float | None = None
+    gaussian_es: float | None = None
+    monte_carlo_var: float | None = None
+    monte_carlo_es: float | None = None
 
 
 class SavedRun(StrictModel):
@@ -302,6 +306,10 @@ class ComparisonRow(RunSummary):
     var_delta: float | None
     es_delta: float | None
     pnl_delta: float | None
+    gaussian_var_delta: float | None = None
+    gaussian_es_delta: float | None = None
+    monte_carlo_var_delta: float | None = None
+    monte_carlo_es_delta: float | None = None
 
 
 class RunComparison(StrictModel):

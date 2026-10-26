@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.advanced_risk import capacity
 from app.brokers.demo import DemoBroker, demo_history
-from app.core.config import ROOT
+from app.core.config import ROOT, Settings
 from app.database.models import Dataset, PortfolioSnapshot, RiskInputArtifact, RiskRun
 from app.main import app
 
@@ -134,6 +134,17 @@ def test_tampered_replay_artifact_is_rejected(client, database):
     assert response.json()["error"]["code"] == "INPUT_INTEGRITY"
 
 
+def test_tampered_model_parameters_are_rejected(client, database):
+    result = analyze(client).json()
+    with Session(database) as db:
+        run = db.get(RiskRun, result["run_id"])
+        run.parameters = {**run.parameters, "seed": 999}
+        db.commit()
+    response = client.post(f"/api/v1/risk/runs/{result['run_id']}/replay")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INPUT_INTEGRITY"
+
+
 def test_bounded_engine_capacity(client):
     capacity.acquire()
     try:
@@ -142,6 +153,30 @@ def test_bounded_engine_capacity(client):
         assert response.json()["error"]["code"] == "RISK_ENGINE_BUSY"
     finally:
         capacity.release()
+
+
+def test_saved_comparison_covers_each_model(client):
+    first = analyze(client, seed=1).json()
+    second = analyze(client, seed=2, shrinkage=0.1).json()
+    response = client.post(
+        "/api/v1/risk/runs/compare", json={"run_ids": [first["run_id"], second["run_id"]]}
+    )
+    assert response.status_code == 200, response.text
+    row = response.json()["rows"][1]
+    assert row["gaussian_var_delta"] == pytest.approx(
+        second["models"]["gaussian"]["var"] - first["models"]["gaussian"]["var"]
+    )
+    assert row["gaussian_es_delta"] == pytest.approx(
+        second["models"]["gaussian"]["expected_shortfall"]
+        - first["models"]["gaussian"]["expected_shortfall"]
+    )
+    assert row["monte_carlo_var_delta"] == pytest.approx(
+        second["models"]["monte_carlo"]["var"] - first["models"]["monte_carlo"]["var"]
+    )
+    assert row["monte_carlo_es_delta"] == pytest.approx(
+        second["models"]["monte_carlo"]["expected_shortfall"]
+        - first["models"]["monte_carlo"]["expected_shortfall"]
+    )
 
 
 def test_catalog_and_synthetic_historical_replay(client):
@@ -310,3 +345,12 @@ def test_sqlite_migration_preserves_legacy_data(tmp_path):
     with engine.connect() as connection:
         assert connection.execute(text("SELECT count(*) FROM risk_runs")).scalar_one() == 1
     engine.dispose()
+
+
+def test_relative_sqlite_configuration_is_independent_of_process_directory(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    configured = Settings(database_url="sqlite:///./vantage.db")
+    from sqlalchemy.engine import make_url
+
+    assert make_url(configured.database_url).database == str(ROOT / "vantage.db")
+    assert Settings(database_url="sqlite:///:memory:").database_url == "sqlite:///:memory:"

@@ -221,6 +221,10 @@ export type RunComparison = {
   baseline_id: string;
   rows: (RunSummary & {
     var_delta: number | null;
+    gaussian_var_delta: number | null;
+    gaussian_es_delta: number | null;
+    monte_carlo_var_delta: number | null;
+    monte_carlo_es_delta: number | null;
     es_delta: number | null;
     pnl_delta: number | null;
   })[];

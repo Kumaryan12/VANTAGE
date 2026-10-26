@@ -194,8 +194,12 @@ export function RiskRuns({ mode }: { mode: "demo" | "kite" }) {
                   <th>RUN</th>
                   <th className="numeric">VALUE</th>
                   <th className="numeric">HISTORICAL VAR</th>
-                  <th className="numeric">VAR Δ</th>
-                  <th className="numeric">ES Δ</th>
+                  <th className="numeric">HIST. VAR Δ</th>
+                  <th className="numeric">HIST. ES Δ</th>
+                  <th className="numeric">GAUSSIAN VAR Δ</th>
+                  <th className="numeric">GAUSSIAN ES Δ</th>
+                  <th className="numeric">MC VAR Δ</th>
+                  <th className="numeric">MC ES Δ</th>
                   <th className="numeric">SCENARIO P&L Δ</th>
                 </tr>
               </thead>
@@ -218,6 +222,26 @@ export function RiskRuns({ mode }: { mode: "demo" | "kite" }) {
                     </td>
                     <td className="numeric">
                       {r.es_delta === null ? "N/A" : money(r.es_delta)}
+                    </td>
+                    <td className="numeric">
+                      {r.gaussian_var_delta == null
+                        ? "N/A"
+                        : money(r.gaussian_var_delta)}
+                    </td>
+                    <td className="numeric">
+                      {r.gaussian_es_delta == null
+                        ? "N/A"
+                        : money(r.gaussian_es_delta)}
+                    </td>
+                    <td className="numeric">
+                      {r.monte_carlo_var_delta == null
+                        ? "N/A"
+                        : money(r.monte_carlo_var_delta)}
+                    </td>
+                    <td className="numeric">
+                      {r.monte_carlo_es_delta == null
+                        ? "N/A"
+                        : money(r.monte_carlo_es_delta)}
                     </td>
                     <td className="numeric">
                       {r.pnl_delta === null ? "N/A" : money(r.pnl_delta)}

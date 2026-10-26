@@ -27,3 +27,31 @@ Browser verification uses a clean session and no broker or keyed-provider creden
 GitHub Actions runs backend checks with a PostgreSQL smoke test and frontend checks with browser tests. Remote execution logs are the source of truth for CI outcomes.
 
 Live broker and keyed-provider access require the owner's credentials and entitlements. Mock contract tests do not imply a successful live authorization or licensed data retrieval.
+
+## Phase 2 verification — 2026-10-26
+
+Phase 1 was audited before modification at `73fcd8e`: 51 Python tests, backend lint/format, frontend lint/type checks and production build passed. The Phase 1 browser suite remains included in the complete six-workflow suite.
+
+| Phase 2 check | Actual outcome |
+| --- | --- |
+| `pytest -c backend/pyproject.toml backend/tests -q` | **132 passed**; same single upstream TestClient/httpx deprecation warning |
+| Ruff lint and format | Passed, including numerical modules, schemas, services, migration, tests and PostgreSQL smoke script |
+| Frontend ESLint / TypeScript / Next.js production build | Passed |
+| `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` | **6 passed**: three Phase 1 regressions plus advanced comparison/archive/replay, stress/replay and advanced mobile layout |
+| SQLite migration 0001 → 0002 → 0001 | Passed in an isolated temporary database; legacy row preserved |
+| Existing SQLite and PostgreSQL migration to 0002 | Applied successfully |
+| PostgreSQL-backed Phase 1/2 smoke | Passed: readiness, legacy risk, advanced analysis, ownership/listing/comparison, immutable input storage, exact analysis and synthetic-stress replay |
+| Numerical known cases | Passed: inverse-ECDF VaR, fractional/tied empirical ES, tabulated Gaussian VaR/ES, correlated/uncorrelated/concentrated/zero/singular portfolios, negative Euler components, shrinkage and PSD corrections |
+| Monte Carlo validation | Fixed-seed equality passed; N=100,000 correlated Gaussian estimates within six conditional asymptotic SEs of analytical VaR/ES; histogram/quantile invariants passed |
+| Stress reconciliation | Security and sector P&L sums reconcile; replacement precedence and exact endpoint requirements tested |
+| Authorization / integrity | Cross-session retrieval/comparison/replay denied; source/artifact/parameter tampering rejected; broker authorization and real/demo separation preserved |
+| Desktop/mobile visual inspection | Model cards, P&L histogram/cutoffs, security/sector attribution and stress output reviewed; no uncaught browser errors; document width 390 px at viewport 390 px |
+| Complete Compose image stack | Not built; documented local processes and actual PostgreSQL container verified |
+
+The suite uses explicitly synthetic fixtures for numerical and real-mode contract mechanics. No actual historical scenario loss, live Kite authorization, or keyed-provider retrieval is claimed from those tests. Actual historical scenarios require an authorized portfolio and permitted covered history.
+
+The Gaussian regression fixture independently checks 31,897.072539 INR 95% VaR and 40,254.256150 INR ES for V=1,000,000, μ=.001 and σ=.02. The 25-loss illustration checks 23.2 INR ES at 90%; the tied-cutoff case checks VaR=1 and ES=3 rather than naive conditional averaging. Numerical and statistical tolerances are documented in `quant_methodology.md` and test comments.
+
+Ignored visual artifacts: `artifacts/phase2-models.png`, `phase2-distribution.png`, `phase2-attribution.png`, `phase2-stress.png`, and `phase2-mobile-models.png`. Run `DATABASE_URL=… backend/.venv/bin/python backend/scripts/smoke_phase2.py` after migration to reproduce database-backed verification. GitHub Actions now runs that script against PostgreSQL plus the full backend/browser suites.
+
+A startup regression test also verifies that `.env.example` relative SQLite URLs resolve to the same repository database when backend/test processes run from different directories.

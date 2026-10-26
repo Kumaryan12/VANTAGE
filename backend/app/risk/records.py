@@ -66,6 +66,12 @@ def summary(run: RiskRun) -> RunSummary:
         else None,
         stress_pnl=result.pnl if run.kind == "stress" else None,
         replayable=bool(run.snapshot_id and run.input_artifact_id),
+        gaussian_var=result.models.gaussian.var if run.kind == "analysis" else None,
+        gaussian_es=result.models.gaussian.expected_shortfall if run.kind == "analysis" else None,
+        monte_carlo_var=result.models.monte_carlo.var if run.kind == "analysis" else None,
+        monte_carlo_es=result.models.monte_carlo.expected_shortfall
+        if run.kind == "analysis"
+        else None,
     )
 
 
@@ -103,6 +109,10 @@ def compare_runs(db: Session, run_ids: list[str], owner: str):
     warnings = [
         "Differences are descriptive model outputs, not predictive superiority or changes-in-risk attribution."
     ]
+    if runs[0].kind == "analysis":
+        warnings.append(
+            "Monte Carlo differences must be assessed against each run's conditional sampling standard errors; more simulations do not remove parameter or model uncertainty."
+        )
     results = [parsed_result(run) for run in runs]
     if len({run.snapshot_id for run in runs}) > 1:
         warnings.append(
@@ -143,6 +153,18 @@ def compare_runs(db: Session, run_ids: list[str], owner: str):
                 else None,
                 pnl_delta=row.stress_pnl - baseline.stress_pnl
                 if row.stress_pnl is not None
+                else None,
+                gaussian_var_delta=row.gaussian_var - baseline.gaussian_var
+                if row.gaussian_var is not None
+                else None,
+                gaussian_es_delta=row.gaussian_es - baseline.gaussian_es
+                if row.gaussian_es is not None
+                else None,
+                monte_carlo_var_delta=row.monte_carlo_var - baseline.monte_carlo_var
+                if row.monte_carlo_var is not None
+                else None,
+                monte_carlo_es_delta=row.monte_carlo_es - baseline.monte_carlo_es
+                if row.monte_carlo_es is not None
                 else None,
             )
             for row in rows

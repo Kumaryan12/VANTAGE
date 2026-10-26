@@ -12,9 +12,20 @@
 
 Evidence and precise limits: [verification.md](verification.md). The complete Compose image stack has not been built in this session; documented local startup and PostgreSQL-backed workflows were tested.
 
-## Phase 2 — advanced risk
+## Phase 2 — implemented
 
-Fractionally weighted empirical Expected Shortfall; Gaussian and correlated Monte Carlo VaR; Euler risk attribution; historical replay; factor shocks; immutable reproducible input artifacts and replayable risk runs. Validate analytical cases and simulation convergence.
+- [x] Historical/Gaussian/Monte Carlo VaR and Expected Shortfall, including exact fractional empirical tail mass
+- [x] Configurable validated confidence, sample rules and common loss units
+- [x] Full covariance estimation, explicit identity shrinkage, symmetry/PSD/condition diagnostics
+- [x] Seeded spectral correlated simulation with compact distributions and conditional sampling uncertainty
+- [x] Euler security/sector volatility attribution and reconciliation
+- [x] Direct hypothetical shocks with replacement precedence and explicit mappings
+- [x] Covered historical replay, independent scenario datasets, disabled missing coverage, clearly labeled synthetic replay
+- [x] Immutable snapshots/input artifacts, complete versioned run metadata, private retrieval/comparison/replay
+- [x] Functional risk/stress/run-history visualizations and browser workflows
+- [x] Numerical, API, authorization, migration, PostgreSQL and regression validation
+
+No verified actual market-event loss is claimed without a permitted covered dataset. Common-date exchange-calendar gaps cannot be independently certified. Full Compose image builds remain unverified; local processes and PostgreSQL are tested. Durable identity/session recovery, storage retention and public deployment remain Phase 6 work.
 
 ## Phase 3 — ML research
 

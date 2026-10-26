@@ -30,22 +30,9 @@ jobs:
       - run: ruff format --check backend data/sample/generate.py
       - run: pytest -c backend/pyproject.toml backend/tests -q
       - run: alembic -c backend/alembic.ini upgrade head
-      - name: PostgreSQL-backed vertical slice
-        run: |
-          python - <<'PY'
-          from fastapi.testclient import TestClient
-          from app.main import app
-          from app.database.session import engine
-          from sqlalchemy import text
-          with TestClient(app) as client:
-              assert client.get('/api/health').status_code == 200
-              assert client.get('/api/portfolio').json()['synthetic'] is True
-              result = client.get('/api/risk')
-              assert result.status_code == 200, result.text
-              assert result.json()['sample_size'] == 252
-          with engine.connect() as connection:
-              assert connection.execute(text('SELECT count(*) FROM risk_runs')).scalar_one() >= 1
-          PY
+      - name: PostgreSQL-backed Phase 1 and Phase 2 vertical slice
+        run: python backend/scripts/smoke_phase2.py
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
