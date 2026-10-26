@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 
 from app.core.errors import AppError
+from app.risk.conventions import minimum_observations, validate_confidence
+from app.risk.tails import empirical_tail
 
 METHOD = "historical-current-weights-v1"
 
@@ -12,7 +14,23 @@ def aligned_prices(frame: pd.DataFrame, instruments: list[str]) -> pd.DataFrame:
     required = {"date", "instrument", "close"}
     if not required.issubset(frame.columns):
         raise AppError("HISTORY_SCHEMA", "Missing required historical columns.")
+    if not instruments or len(set(instruments)) != len(instruments):
+        raise AppError(
+            "INVALID_INSTRUMENTS", "Historical alignment requires unique nonempty instruments."
+        )
     data = frame[frame.instrument.isin(instruments)].copy()
+    try:
+        data["date"] = pd.to_datetime(data.date, errors="raise")
+        if (
+            data.date.isna().any()
+            or data.date.dt.tz is not None
+            or not data.date.eq(data.date.dt.normalize()).all()
+        ):
+            raise ValueError
+    except (ValueError, TypeError, AttributeError):
+        raise AppError(
+            "INVALID_DATES", "Historical observations must have valid daily, timezone-free dates."
+        ) from None
     missing = sorted(set(instruments) - set(data.instrument))
     if missing:
         raise AppError(
@@ -35,9 +53,7 @@ def historical_var(returns: np.ndarray, confidence: float) -> float:
     values = np.asarray(returns, dtype=float)
     if values.ndim != 1 or not len(values) or not np.isfinite(values).all():
         raise AppError("INVALID_RETURNS", "Returns must be a nonempty finite vector.")
-    if confidence not in (0.95, 0.99):
-        raise AppError("INVALID_CONFIDENCE", "Supported confidence levels are 0.95 and 0.99.")
-    return float(np.quantile(-values, confidence, method="inverted_cdf"))
+    return empirical_tail(-values, confidence)["var"]
 
 
 def annualized_volatility(returns: np.ndarray) -> float:
@@ -57,6 +73,7 @@ def scenario_path(returns: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def calculate(prices: pd.DataFrame, weights: np.ndarray, confidence: float, window: int) -> dict:
+    validate_confidence(confidence)
     weights = np.asarray(weights, dtype=float)
     if (
         weights.shape != (prices.shape[1],)
@@ -79,7 +96,7 @@ def calculate(prices: pd.DataFrame, weights: np.ndarray, confidence: float, wind
         raise AppError("INVALID_WINDOW", "Window must be between 60 and 1260 daily returns.")
     prices = prices.tail(window + 1)
     returns = prices.pct_change(fill_method=None).iloc[1:]
-    minimum = 100 if confidence == 0.99 else 60
+    minimum = minimum_observations(confidence)
     if len(returns) < minimum:
         raise AppError(
             "INSUFFICIENT_HISTORY", f"At least {minimum} aligned daily returns required."

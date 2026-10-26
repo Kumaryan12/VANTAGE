@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.api.advanced_risk import router as advanced_router
 from app.api.routes import router
 from app.core.config import settings
 from app.core.errors import AppError
@@ -19,6 +20,7 @@ app = FastAPI(
     redoc_url=None,
 )
 app.include_router(router)
+app.include_router(advanced_router)
 logger = logging.getLogger("vantage")
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 # httpx's INFO logger includes URLs and therefore API keys. Disable it.

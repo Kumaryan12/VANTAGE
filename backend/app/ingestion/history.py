@@ -142,6 +142,10 @@ def load_history(db: Session, dataset_id: str, owner: str):
         raise AppError(
             "DATASET_NOT_FOUND", "Historical dataset not found in this browser session.", 404
         )
+    if hashlib.sha256(dataset.records.encode()).hexdigest() != dataset.provenance["content_hash"]:
+        raise AppError(
+            "SOURCE_INTEGRITY", "Stored historical data failed its provenance hash check.", 409
+        )
     frame = pd.DataFrame(json.loads(dataset.records))
     frame["date"] = pd.to_datetime(frame.date)
     return frame, Provenance.model_validate(dataset.provenance)

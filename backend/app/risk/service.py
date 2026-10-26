@@ -14,14 +14,7 @@ from app.portfolios.schemas import Portfolio, RiskResult
 from app.risk.engine import METHOD, aligned_prices, calculate
 
 
-def risk_for_portfolio(
-    db: Session,
-    portfolio: Portfolio,
-    owner: str,
-    dataset_id: str | None,
-    confidence: float,
-    window: int,
-):
+def resolve_prices(db, portfolio, owner, dataset_id, *, require_fresh=True):
     if portfolio.mode == "demo":
         if dataset_id:
             raise AppError(
@@ -49,10 +42,22 @@ def risk_for_portfolio(
         raise AppError(
             "FUTURE_HISTORY", "History cannot extend beyond the portfolio valuation date."
         )
-    if (portfolio.as_of - prices.index[-1].date()).days > 7:
+    if require_fresh and (portfolio.as_of - prices.index[-1].date()).days > 7:
         raise AppError(
             "STALE_HISTORY", "History ends more than seven calendar days before the valuation date."
         )
+    return prices, provenance
+
+
+def risk_for_portfolio(
+    db: Session,
+    portfolio: Portfolio,
+    owner: str,
+    dataset_id: str | None,
+    confidence: float,
+    window: int,
+):
+    prices, provenance = resolve_prices(db, portfolio, owner, dataset_id)
     output = calculate(prices, np.array([h.weight for h in portfolio.holdings]), confidence, window)
     run_id = str(uuid4())
     result = RiskResult(

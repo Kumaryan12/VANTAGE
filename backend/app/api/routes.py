@@ -71,7 +71,7 @@ def risk(
     session: Browser,
     db: DB,
     mode: Mode = "demo",
-    confidence: float = Query(0.95, ge=0.95, le=0.99, json_schema_extra={"enum": [0.95, 0.99]}),
+    confidence: float = Query(0.95, ge=0.90, le=0.995),
     window: int = Query(252, ge=60, le=1260),
     dataset_id: str | None = None,
 ):

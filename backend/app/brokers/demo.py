@@ -1,9 +1,11 @@
+import hashlib
 import json
 from datetime import datetime
 
 import pandas as pd
 
 from app.core.config import ROOT
+from app.core.errors import AppError
 from app.portfolios.normalize import normalize
 from app.portfolios.schemas import Provenance
 
@@ -23,4 +25,11 @@ class DemoBroker:
 def demo_history():
     frame = pd.read_csv(ROOT / "data/sample/prices.csv", parse_dates=["date"])
     provenance = Provenance.model_validate_json((ROOT / "data/sample/provenance.json").read_text())
+    if (
+        hashlib.sha256((ROOT / "data/sample/prices.csv").read_bytes()).hexdigest()
+        != provenance.content_hash
+    ):
+        raise AppError(
+            "SOURCE_INTEGRITY", "Synthetic fixture failed its provenance hash check.", 409
+        )
     return frame, provenance

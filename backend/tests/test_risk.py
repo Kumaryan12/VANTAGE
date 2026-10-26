@@ -139,7 +139,7 @@ def test_insufficient_and_invalid_weights():
     with pytest.raises(AppError, match="sum to one"):
         calculate(prices, np.array([0.5]), 0.95, 60)
     with pytest.raises(AppError):
-        historical_var(np.array([0.01]), 0.90)
+        historical_var(np.array([0.01]), 0.89)
 
 
 def test_demo_is_repeatable_and_hash_matches_fixture():
