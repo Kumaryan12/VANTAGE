@@ -11,6 +11,7 @@ from app.api.advanced_risk import router as advanced_router
 from app.api.agent import router as agent_router
 from app.api.documents import router as documents_router
 from app.api.ml import router as ml_router
+from app.api.optimization import router as optimization_router
 from app.api.routes import router
 from app.core.config import settings
 from app.core.errors import AppError
@@ -25,6 +26,7 @@ app = FastAPI(
 app.include_router(router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
+app.include_router(optimization_router)
 app.include_router(agent_router)
 app.include_router(documents_router)
 logger = logging.getLogger("vantage")

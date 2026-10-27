@@ -57,6 +57,7 @@ import { StressLab } from "./stress-lab";
 import { RiskRuns } from "./risk-runs";
 import { ResearchTerminal } from "./research-terminal";
 import { AIAssistant } from "./ai-assistant";
+import { OptimizationTerminal } from "./optimization-terminal";
 
 type Tab =
   | "Overview"
@@ -66,7 +67,8 @@ type Tab =
   | "Risk Runs"
   | "Data Sources"
   | "Quantitative Research"
-  | "AI Risk Assistant";
+  | "AI Risk Assistant"
+  | "Portfolio Optimization";
 const nav = [
   { name: "Overview", icon: LayoutDashboard },
   { name: "Portfolio", icon: Layers3 },
@@ -74,6 +76,7 @@ const nav = [
   { name: "Stress Testing", icon: FlaskConical },
   { name: "Risk Runs", icon: History },
   { name: "Quantitative Research", icon: BarChart3 },
+  { name: "Portfolio Optimization", icon: SlidersHorizontal },
   { name: "AI Risk Assistant", icon: Bot },
   { name: "Data Sources", icon: Database },
 ] as const;
@@ -303,7 +306,9 @@ function Workspace() {
                             ? "Put every forecast to the test."
                             : tab === "AI Risk Assistant"
                               ? "Investigate with evidence."
-                              : "Evidence starts at the source."}
+                              : tab === "Portfolio Optimization"
+                                ? "Explore feasible decisions."
+                                : "Evidence starts at the source."}
               </h1>
               <p>
                 {tab === "Data Sources"
@@ -434,6 +439,12 @@ function Workspace() {
                 setDataset(id);
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
+            />
+          ) : tab === "Portfolio Optimization" ? (
+            <OptimizationTerminal
+              key={mode + dataset}
+              selection={selection}
+              ready={!!session.data}
             />
           ) : tab === "AI Risk Assistant" ? (
             <AIAssistant

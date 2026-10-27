@@ -2992,3 +2992,128 @@ details ul {
     gap: 10px;
   }
 }
+.optimization-terminal {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.optimization-terminal h2 {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.optimization-form {
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+}
+.optimization-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.optimization-terminal label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 11px;
+  color: #a8becb;
+}
+.optimization-terminal input:not([type="checkbox"]),
+.optimization-terminal select,
+.optimization-terminal textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #344955;
+  border-radius: 5px;
+  background: #11212b;
+  color: #d5e3eb;
+  padding: 11px;
+  font: inherit;
+  line-height: 1.7;
+}
+.optimization-terminal .form-help {
+  font-size: 11px;
+  color: #91a8b7;
+  line-height: 1.9;
+}
+.optimization-terminal .cell-note {
+  display: block;
+  font-size: 9px;
+  color: #91a8b7;
+  margin-top: 5px;
+  line-height: 1.8;
+}
+.optimization-job {
+  padding: 22px 24px;
+  display: grid;
+  gap: 12px;
+  font-size: 12px;
+}
+.optimization-job small {
+  font: 10px monospace;
+  color: #8da4b3;
+  overflow-wrap: anywhere;
+}
+.optimization-job progress {
+  width: 100%;
+  height: 5px;
+  accent-color: #74d9b3;
+}
+.optimization-terminal pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 400px;
+  overflow: auto;
+  font-size: 10px;
+  line-height: 1.8;
+  color: #9db8c8;
+}
+.optimization-terminal details {
+  font-size: 11px;
+  color: #9db8c8;
+}
+.optimization-terminal summary {
+  cursor: pointer;
+}
+.optimization-terminal .result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.optimization-terminal .result-heading h2 {
+  font-size: 17px;
+}
+.optimization-terminal .result-heading p {
+  font-size: 11px;
+  color: #91a8b7;
+  line-height: 1.9;
+}
+.optimization-terminal td {
+  font-size: 11px;
+}
+.optimization-overview > .risk-warnings {
+  padding: 0 24px 24px;
+}
+.optimization-terminal .heading-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 650px) {
+  .optimization-controls {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 12px;
+  }
+  .optimization-form,
+  .optimization-job {
+    padding: 18px 15px;
+  }
+  .optimization-terminal .panel-heading {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .optimization-terminal .panel-heading p {
+    line-height: 1.8;
+  }
+}
