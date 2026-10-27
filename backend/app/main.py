@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.api.advanced_risk import router as advanced_router
 from app.api.agent import router as agent_router
 from app.api.documents import router as documents_router
+from app.api.governance import router as governance_router
 from app.api.ml import router as ml_router
 from app.api.optimization import router as optimization_router
 from app.api.routes import router
@@ -27,6 +28,7 @@ app.include_router(router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
 app.include_router(optimization_router)
+app.include_router(governance_router)
 app.include_router(agent_router)
 app.include_router(documents_router)
 logger = logging.getLogger("vantage")

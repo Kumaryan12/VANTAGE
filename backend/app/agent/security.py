@@ -31,6 +31,8 @@ def redact(text: str) -> str:
 
 def prohibited(question: str) -> bool:
     # Defense in depth: executable capabilities do not exist in the tool registry.
+    if re.search(r"\b(?:approve|retire|reject)\b.{0,35}\bmodel\b", question, re.I):
+        return True
     return bool(
         re.search(
             r"(?i)\b(execute|place|submit|buy|sell)\b.{0,35}\b(order|trade|shares|stock)\b|\b(shell|sql|password|api.?key|access.?token|exfiltrat|ignore.{0,15}(rules|instructions)|promote.{0,20}champion)\b",

@@ -206,3 +206,71 @@ def test_invalid_mapping_covariance_bounds_and_independent_rejection():
         AllocationConstraints(min_weight=0.5, max_weight=0.4)
     with pytest.raises(ValidationError):
         CostAssumptions(asset_rates={"A0": float("nan")})
+
+
+@pytest.mark.parametrize(
+    "status,iterations,expected",
+    [
+        ("user_limit", 300, "iteration_limit"),
+        ("user_limit", 1, "timeout"),
+        ("unbounded", 1, "unbounded"),
+        ("infeasible", 1, "infeasible"),
+        ("unexpected", 1, "solver_failure"),
+    ],
+)
+def test_solver_termination_states_never_publish_weights(monkeypatch, status, iterations, expected):
+    from types import SimpleNamespace
+
+    import cvxpy as cp
+
+    def stopped(problem, **kwargs):
+        problem._status = status
+        problem._solver_stats = SimpleNamespace(num_iters=iterations, solve_time=0.001)
+
+    monkeypatch.setattr(cp.Problem, "solve", stopped)
+    result = run(np.eye(2) * 0.0001)
+    assert result.status == expected and not result.feasible
+    assert result.weights is None and result.cost_inr is None
+
+
+def test_inaccurate_status_and_corrupt_solver_weights_are_not_hidden(monkeypatch):
+    from types import SimpleNamespace
+
+    import cvxpy as cp
+
+    def inaccurate(problem, **kwargs):
+        for variable in problem.variables():
+            variable.value = np.array([0.5, 0.5])
+        problem._status = cp.OPTIMAL_INACCURATE
+        problem._value = problem.objective.value
+        problem._solver_stats = SimpleNamespace(num_iters=10, solve_time=0.001)
+
+    monkeypatch.setattr(cp.Problem, "solve", inaccurate)
+    result = run(np.eye(2) * 0.0001)
+    assert result.feasible and result.status == "optimal_inaccurate"
+
+    def corrupt(problem, **kwargs):
+        inaccurate(problem, **kwargs)
+        problem.variables()[0].value = np.array([0.7, 0.7])
+
+    monkeypatch.setattr(cp.Problem, "solve", corrupt)
+    result = run(np.eye(2) * 0.0001)
+    assert result.status == "validation_failed" and result.weights is None
+
+
+def test_solver_errors_and_timeouts_are_typed(monkeypatch):
+    import cvxpy as cp
+
+    def failed(problem, **kwargs):
+        raise cp.error.SolverError("Private solver detail should not leak")
+
+    monkeypatch.setattr(cp.Problem, "solve", failed)
+    result = run(np.eye(2) * 0.0001)
+    assert result.status == "solver_failure" and result.weights is None
+    assert not any("Private" in text for text in result.diagnostics)
+
+    def timeout(problem, **kwargs):
+        raise TimeoutError()
+
+    monkeypatch.setattr(cp.Problem, "solve", timeout)
+    assert run(np.eye(2) * 0.0001).status == "timeout"

@@ -232,3 +232,27 @@ class OptimizationCounterfactual(Base):
     run_id: Mapped[str] = mapped_column(ForeignKey("optimization_runs.id"), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GovernanceModel(Base):
+    __tablename__ = "governance_models"
+    __table_args__ = (UniqueConstraint("owner", "source_type", "source_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    source_type: Mapped[str] = mapped_column(String(20))
+    source_id: Mapped[str] = mapped_column(String(36))
+    model_type: Mapped[str] = mapped_column(String(80))
+    model_version: Mapped[str] = mapped_column(String(100))
+    intended_use: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30))
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GovernanceReviewEvent(Base):
+    __tablename__ = "governance_review_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    model_id: Mapped[str] = mapped_column(ForeignKey("governance_models.id"), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

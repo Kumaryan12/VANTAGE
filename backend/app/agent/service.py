@@ -40,6 +40,10 @@ def classify(question):
         s in q for s in ("guaranteed profit", "guarantee returns", "should i buy", "should i sell")
     ):
         return "unsupported"
+    if any(term in q for term in ("optimiz", "turnover", "efficient frontier")) or re.search(
+        r"reduc\w*.{0,45}volatility", q
+    ):
+        return "optimization"
     models = any(
         s in q
         for s in (
@@ -106,7 +110,26 @@ def classify(question):
     return "unsupported"
 
 
-def plan_for(intent, question="", run_ids=None):
+def plan_for(intent, question="", run_ids=None, optimization_run_id=None):
+    if intent == "optimization":
+        if "governance" in question.lower() or "review status" in question.lower():
+            return ["get_optimization_result", "get_model_governance_status"]
+        if optimization_run_id or any(
+            term in question.lower() for term in ("saved", "latest", "explain", "sensitivity")
+        ):
+            return [
+                "get_optimization_result",
+                "get_optimization_sensitivity"
+                if "sensitivity" in question.lower()
+                else "explain_optimization_tradeoffs",
+            ]
+        return [
+            "get_portfolio_snapshot",
+            "get_optimization_constraints",
+            "preview_portfolio_optimization",
+            "run_portfolio_optimization",
+            "explain_optimization_tradeoffs",
+        ]
     if intent == "models":
         result = ["list_research_experiments", "compare_forecasting_models"]
         if "shap" in question.lower() or "explanation" in question.lower():
@@ -171,6 +194,17 @@ def allowed_tools(intent):
         | risk_tools
         | {"run_stress_scenario"},
         "changes": {"get_saved_risk_run", "compare_risk_runs"},
+        "optimization": {
+            "get_portfolio_snapshot",
+            "get_optimization_constraints",
+            "preview_portfolio_optimization",
+            "run_portfolio_optimization",
+            "get_optimization_result",
+            "compare_portfolio_allocations",
+            "get_optimization_sensitivity",
+            "explain_optimization_tradeoffs",
+            "get_model_governance_status",
+        },
         "unsupported": set(),
     }[intent]
 
@@ -267,7 +301,20 @@ class InvestigationQueue:
                 stage="Queued for authorized investigation",
                 runner_id=RUNNER_ID,
                 question=request.question,
-                intent=classify(request.question),
+                intent="unsupported"
+                if prohibited(request.question)
+                or any(
+                    term in request.question.lower()
+                    for term in (
+                        "guaranteed profit",
+                        "guarantee returns",
+                        "should i buy",
+                        "should i sell",
+                    )
+                )
+                else "optimization"
+                if request.optimization_run_id or request.optimization_parameters
+                else classify(request.question),
                 engine=request.engine,
                 request=request.model_dump(mode="json"),
                 context={
@@ -339,7 +386,9 @@ class InvestigationQueue:
                 state = WorkflowState(
                     question=row.question,
                     intent=row.intent,
-                    plan=plan_for(row.intent, row.question, request.run_ids),
+                    plan=plan_for(
+                        row.intent, row.question, request.run_ids, request.optimization_run_id
+                    ),
                 )
                 row.status = "running"
                 db.commit()

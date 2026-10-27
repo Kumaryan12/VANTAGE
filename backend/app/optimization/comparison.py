@@ -74,6 +74,19 @@ def risk_metrics(portfolio, weights, returns, covariance, parameters):
         "gaussian_es": gaussian["expected_shortfall"],
         "monte_carlo_var": simulation["var"],
         "monte_carlo_es": simulation["expected_shortfall"],
+        "simulation_diagnostics": {
+            key: simulation[key]
+            for key in (
+                "var_standard_error",
+                "es_standard_error",
+                "var_mc_interval_95",
+                "es_mc_interval_95",
+                "nonpositive_value_count",
+                "asset_returns_below_minus_one",
+                "uncertainty_note",
+                "assumptions",
+            )
+        },
         "position_hhi": virtual.hhi,
         "sector_hhi": sum(v * v for v in virtual.sectors.values()),
         "sector_weights": virtual.sectors,
@@ -111,6 +124,10 @@ def compare_allocations(
         "current": before,
         "proposed": after,
         "delta": {key: after[key] - before[key] for key in metrics},
+        "relative_delta": {
+            key: (after[key] - before[key]) / abs(before[key]) if before[key] != 0 else None
+            for key in metrics
+        },
         "volatility_reduction_fraction": 1
         - after["annual_volatility"] / before["annual_volatility"]
         if before["annual_volatility"] > 0

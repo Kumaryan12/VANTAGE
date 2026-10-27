@@ -9,14 +9,30 @@ from .contracts import Citation, FinalSelection, ValidatedAnswer, VerifiedClaim
 
 
 def essential_fact(key):
-    return key in {
-        "lowest_qlike_model",
-        "matched_observations",
-        "high_regime_observations",
-        "stress.pnl",
-        "stress.loss",
-        "stress.pnl_reconciliation_residual",
-    } or key.endswith(".qlike")
+    return (
+        key
+        in {
+            "lowest_qlike_model",
+            "matched_observations",
+            "high_regime_observations",
+            "stress.pnl",
+            "stress.loss",
+            "stress.pnl_reconciliation_residual",
+        }
+        or key.endswith(".qlike")
+        or key
+        in {
+            "opt.current_volatility",
+            "opt.proposed_volatility",
+            "opt.turnover",
+            "opt.cost",
+            "opt.volatility_reduction",
+            "opt.constraint_violation",
+            "opt.goal_status",
+            "opt.requested_reduction",
+            "opt.solver_status",
+        }
+    )
 
 
 def default_selection(evidence):
@@ -128,6 +144,28 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
         )
     findings = []
     for e in evidence.values():
+        if e.source_type == "optimization_run":
+            values = {f.key: f.value for f in e.facts}
+            status = values.get("opt.goal_status")
+            if status == "achieved_by_verified_allocation":
+                findings.append(
+                    "The verified feasible allocation meets the explicitly requested relative volatility reduction within the fitted covariance model. This is not a forecast or guaranteed market benefit."
+                )
+            elif status == "not_reached_at_fitted_minimum_variance":
+                findings.append(
+                    "The requested relative reduction is not reached by the verified fitted minimum-variance solution under the unchanged constraints and recorded solver tolerance. A feasible allocation alone does not establish goal achievement."
+                )
+            elif status:
+                findings.append(
+                    "The requested reduction is not established by this result; zero-baseline, reduced solver precision or a penalized objective can prevent a definitive feasibility conclusion."
+                )
+            findings.append(
+                "These are continuous fully invested equity-sleeve research weights. Costs are assumptions; turnover uses half the gross absolute weight change. No holdings, orders or governance decisions were changed."
+            )
+            if values.get("opt.solver_status") == "infeasible":
+                findings.append(
+                    "The original optimization is infeasible and has no proposed allocation. Diagnostic alternatives do not modify the user constraints."
+                )
         sectors = e.data.get("sector_weights")
         if sectors:
             largest = max(sectors, key=sectors.get)
@@ -223,6 +261,7 @@ def verify_and_compose(state, selection, engine, document_resolver=None):
     return ValidatedAnswer(
         title={
             "models": "Forecasting model investigation",
+            "optimization": "Portfolio optimization investigation",
             "documents": "Financial disclosure evidence",
             "stress": "Hypothetical scenario investigation",
             "portfolio": "Portfolio exposure investigation",

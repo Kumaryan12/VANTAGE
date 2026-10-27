@@ -3,13 +3,22 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.optimization.contracts import OptimizationRequest
 from app.portfolios.schemas import StrictModel
 from app.risk.contracts import StressRequest
 
 WORKFLOW_VERSION = "financial-investigator-4.0.0"
 Status = Literal["queued", "running", "completed", "limited", "failed", "cancelled", "interrupted"]
 Intent = Literal[
-    "portfolio", "risk", "models", "stress", "documents", "combined", "changes", "unsupported"
+    "portfolio",
+    "risk",
+    "models",
+    "stress",
+    "documents",
+    "combined",
+    "changes",
+    "unsupported",
+    "optimization",
 ]
 
 
@@ -22,6 +31,8 @@ class InvestigationRequest(StrictModel):
     run_ids: list[str] = Field(default_factory=list, max_length=4)
     document_ids: list[str] = Field(default_factory=list, max_length=20)
     company: str | None = Field(None, max_length=80)
+    optimization_run_id: str | None = Field(None, max_length=36)
+    optimization_parameters: OptimizationRequest | None = None
     confidence: float = Field(0.95, ge=0.9, le=0.995)
     window: int = Field(252, ge=60, le=1260, strict=True)
     shrinkage: float = Field(0, ge=0, le=1)
@@ -42,6 +53,19 @@ class InvestigationRequest(StrictModel):
         ):
             raise ValueError(
                 "Scenario mode/dataset must match the authorized investigation context."
+            )
+        if self.optimization_run_id and self.optimization_parameters:
+            raise ValueError(
+                "Select a saved optimization or explicit new calculation parameters, not both."
+            )
+        if self.optimization_parameters and (
+            self.optimization_parameters.mode != self.mode
+            or self.optimization_parameters.dataset_id != self.dataset_id
+            or self.optimization_parameters.confidence != self.confidence
+            or self.optimization_parameters.window != self.window
+        ):
+            raise ValueError(
+                "Optimization parameters must match the investigation source/confidence/window context."
             )
         return self
 

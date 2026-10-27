@@ -44,6 +44,8 @@ def owner(session: BrowserSession):
 
 @router.get("/health")
 def health(request: Request, db: DB):
+    from app.database.models import AgentToolCall, GovernanceModel, OptimizationRun
+
     try:
         db.execute(text("SELECT 1"))
         db.execute(select(Dataset.id).limit(1))
@@ -51,6 +53,9 @@ def health(request: Request, db: DB):
         db.execute(select(ResearchExperiment.id).limit(1))
         db.execute(select(AgentInvestigation.id).limit(1))
         db.execute(select(ResearchDocument.id).limit(1))
+        db.execute(select(AgentToolCall.sequence).limit(1))
+        db.execute(select(OptimizationRun.id).limit(1))
+        db.execute(select(GovernanceModel.id).limit(1))
     except Exception:
         raise AppError(
             "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503

@@ -1,3 +1,4 @@
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -14,9 +15,10 @@ from app.portfolios.schemas import Portfolio
 from app.risk.artifacts import digest, persist_inputs
 
 from .comparison import compare_allocations, risk_metrics
-from .contracts import VERSION, OptimizationDetail, OptimizationJob, OptimizationRequest
+from .contracts import VERSION, OptimizationDetail, OptimizationJob
 from .data import capture, prepare
 from .solver import solve_allocation
+from .studies import point_plan, request_for
 
 RUNNER_ID = str(uuid4())
 
@@ -40,7 +42,11 @@ def job(row):
         synthetic=row.dataset["synthetic"],
         created_at=row.created_at,
         finished_at=row.finished_at,
-        solver_status=row.result["points"][0]["solution"]["status"]
+        solver_status=(
+            row.result["points"][0]["solution"]["status"]
+            if len({p["solution"]["status"] for p in row.result["points"]}) == 1
+            else "mixed"
+        )
         if row.result and row.result.get("points")
         else None,
         error=row.error,
@@ -242,6 +248,8 @@ class OptimizationQueue:
             base = parameters if kind == "single" else parameters.base
             payload = payload if payload is not None else capture(db, portfolio, owner, base)
             _, _, _, dataset = prepare(portfolio, payload, base)
+            for _, parameters_for_point, _ in point_plan(kind, parameters):
+                prepare(portfolio, payload, parameters_for_point)
             snapshot, artifact = persist_inputs(db, portfolio, payload, owner)
             params = parameters.model_dump(mode="json")
             row = OptimizationRun(
@@ -294,11 +302,52 @@ class OptimizationQueue:
                 row.progress = 10
                 db.commit()
                 portfolio, payload = verify_inputs(db, row, row.owner)
-                parameters = OptimizationRequest.model_validate(row.parameters)
-                point = calculate_point(portfolio, payload, parameters)
+                parameters = request_for(row.kind, row.parameters)
+                points = []
+                started = time.monotonic()
+                planned = point_plan(row.kind, parameters)
+                for index, (label, settings, changes) in enumerate(planned):
+                    if time.monotonic() - started > 90:
+                        raise AppError(
+                            "OPTIMIZATION_TIMEOUT",
+                            "The bounded study exceeded its 90-second budget.",
+                            504,
+                        )
+                    row.stage = f"Solving {label}"
+                    row.progress = 10 + int(80 * index / len(planned))
+                    db.commit()
+                    points.append(calculate_point(portfolio, payload, settings, label, changes))
+                if row.kind == "sensitivity":
+                    baseline_weights = points[0]["solution"]["weights"]
+                    for point in points:
+                        weights = point["solution"]["weights"]
+                        point["allocation_stability"] = {
+                            "one_way_distance_from_base": float(
+                                0.5 * np.abs(np.array(weights) - np.array(baseline_weights)).sum()
+                            )
+                            if weights is not None and baseline_weights is not None
+                            else None,
+                            "interpretation": "Allocation distance under a labeled input variation; not an uncertainty interval or predictive validation. Large differences may signal estimation instability.",
+                        }
                 result = {
                     "kind": row.kind,
-                    "points": [point],
+                    "points": points,
+                    "frontier_mode": parameters.mode if row.kind == "frontier" else None,
+                    "plot": [
+                        {
+                            "point_index": i,
+                            "label": p["label"],
+                            "x": p["parameters"]["constraints"]["max_turnover"]
+                            if row.kind == "frontier" and parameters.mode == "risk_turnover"
+                            else p["solution"]["expected_annual_return"]
+                            if row.kind == "frontier"
+                            else i,
+                            "annual_volatility": p["solution"]["annual_volatility"],
+                            "status": p["solution"]["status"],
+                            "feasible": p["solution"]["feasible"],
+                        }
+                        for i, p in enumerate(points)
+                    ],
                     "warnings": [
                         "SYNTHETIC research does not establish real-market investment performance."
                     ]
@@ -320,10 +369,30 @@ class OptimizationQueue:
                         result["reproduction_match"] = reproduction_matches(old.result, result)
                 row.result = result
                 row.result_hash = digest(result)
-                row.status = "completed"
+                row.status = (
+                    "completed"
+                    if all(
+                        p["solution"]["status"] in ("optimal", "optimal_inaccurate", "infeasible")
+                        for p in points
+                    )
+                    else "partial"
+                )
                 row.stage = "Completed with independently checked solver outcome"
                 row.progress = 100
                 row.finished_at = datetime.now(UTC)
+                if row.kind == "single" and points[0]["solution"]["feasible"]:
+                    from app.governance.contracts import RegisterModel
+                    from app.governance.service import register
+
+                    db.flush()
+                    registered = register(
+                        db,
+                        row.owner,
+                        RegisterModel(source_type="optimization", source_id=row.id),
+                        commit=False,
+                    )
+                    row.result = {**result, "governance_model_id": registered.id}
+                    row.result_hash = digest(row.result)
                 db.commit()
         except Exception as error:
             with Session(engine) as db:
@@ -359,7 +428,7 @@ def reproduce(db, row, owner):
         db,
         portfolio,
         owner,
-        OptimizationRequest.model_validate(row.parameters),
+        request_for(row.kind, row.parameters),
         kind=row.kind,
         payload=payload,
         reproduction_of=row.id,

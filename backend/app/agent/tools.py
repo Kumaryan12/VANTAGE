@@ -414,3 +414,4 @@ def document_evidence(ctx, body):
 
 # Register financial adapters only after the shared typed registry is initialized.
 from . import analytics as _analytics  # noqa: E402,F401
+from . import optimization_tools as _optimization_tools  # noqa: E402,F401
