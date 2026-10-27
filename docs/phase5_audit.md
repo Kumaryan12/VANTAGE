@@ -33,3 +33,7 @@ The Phase 3/4 reports retain their original provenance and scientific limitation
 ## Baseline ordering defect found and repaired
 
 All nine baseline browser workflows and Phase 1–3 PostgreSQL smokes passed. The PostgreSQL golden rerun `6a6341d0-ea63-40e4-b2b9-68ea36e38bd9` reported 59/60 tasks and 44/45 tool-order checks: G029's database rows returned search first although the ordered execution trace proved it ran last. SQL had no ORDER BY, so heap/update order was accidentally treated as execution order. Migration 0006 adds nullable legacy/new explicit tool-call sequencing; new calls and retrieval/evaluation use it. Old sequence values remain unknown rather than invented. This changes audit ordering, not expected tool sequences or evaluation thresholds.
+
+## Completed verification
+
+The final local implementation `900635d` passed 228 backend tests, twelve Chrome workflows, lint/type/build and all PostgreSQL regression slices. The new thirteen-case optimization expectations remain fixed and all passed, alongside the original 60-case suite. The [actual PostgreSQL experiment](research/portfolio_optimization_validation.md) records fitted synthetic benefits and limitations. Development findings and regression evidence are retained in [verification](verification.md). The original Phase 3/4 measured reports were not relabeled or regenerated.
