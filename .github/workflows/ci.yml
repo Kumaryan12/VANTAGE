@@ -36,6 +36,8 @@ jobs:
         run: python backend/scripts/research_report.py --smoke
       - name: PostgreSQL-backed agent golden workflows and security probes
         run: python backend/scripts/agent_evaluate.py --no-report
+      - name: PostgreSQL-backed optimization, studies, scenario replay and fixed agent cases
+        run: python backend/scripts/optimization_validate.py --smoke
 
   frontend:
     runs-on: ubuntu-24.04

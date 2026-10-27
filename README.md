@@ -2,7 +2,7 @@
 
 **AI-Powered Portfolio Risk & Quantitative Research Platform**
 
-VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–4 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible forecasting research and evidence-grounded financial investigations; later phases add optimization and production hardening. Financial results come from tested Python calculations, never an LLM.
+VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–4 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible forecasting research and evidence-grounded financial investigations; Phase 5 adds constrained decision support; Phase 6 production hardening remains planned. Financial results come from tested Python calculations, never an LLM.
 
 ## Implemented scope
 
@@ -16,7 +16,7 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Next.js dark dashboard with working portfolio/source selection, confidence/window controls, risk/sector charts, holdings search/sort, imports, context retrieval, visible errors, and JSON risk-run export.
 - Local startup, PostgreSQL Compose deployment configuration, numerical/API/security tests, browser workflow tests, and GitHub Actions.
 
-**Planned:** constrained optimization and Phase 6 production hardening. See [roadmap](docs/roadmap.md).
+**Planned:** Phase 6 production hardening. See [roadmap](docs/roadmap.md).
 
 ## Phase 2 — advanced quantitative risk
 
@@ -83,6 +83,27 @@ backend/.venv/bin/python backend/scripts/agent_evaluate.py
 Migrations 0004/0005 add owned investigations, steps, tool calls, evidence, evaluations and PDF/chunk indexes. Private PDFs live under `DOCUMENT_STORAGE_DIR`; back up database and both artifact volumes together. Deletion cleans indexes/files and marks old citations unavailable. Session expiry/restart still prevents recovery; parser sandboxing, identity, retention, global quotas and distributed execution remain Phase 6 work.
 
 See [agent architecture/setup](docs/agent_architecture.md), [financial RAG](docs/financial_rag.md), [tool schemas](docs/agent_tool_contracts.md), [evaluation protocol](docs/agent_evaluation.md), [executed results](docs/agent_evaluation_results.md) and [threat model](docs/agent_threat_model.md).
+
+## Phase 5 — portfolio optimization and decision intelligence
+
+- CVXPY/CLARABEL minimum annual variance, variance-plus-turnover/cost penalties, target-risk feasibility, and conditional target-return research with complete explicitly sourced assumptions.
+- Long-only fully invested held INR equity sleeve; global/asset/frozen/sector policies, explicit Unknown handling, one-way turnover `.5 Σ|Δw|`, configurable symmetric/asymmetric research costs. Missing cash remains unknown; no real-to-demo fallback or silent constraint relaxation.
+- Independently checked solver outcomes and residuals; matched historical/Gaussian/Monte Carlo VaR/ES, signed attribution, concentration and unchanged unfavorable tail-risk results.
+- Saved risk–turnover curves, gated return frontier, six-axis sensitivity, identical direct/historical counterfactual stress with immutable scenario replay, and private run comparison/reproduction/export.
+- **Portfolio Optimization** dashboard with actual constraint controls, allocation charts/sortable tables, complete risk comparisons, sensitivity/curve point inspection, stress comparison, history and human research governance.
+- Candidate → under_review → validated → approved_research (with rejection/retirement paths), eight written assessment areas, reproduction/evidence gates and authorized session review events. No automatic champion or investment-use approval.
+- Eight additional pinned agent tools; actual risk-reduction goal assessment and 13 fixed optimization cases alongside the unchanged 60-case investigator suite. No orders, holdings mutation, agent policy relaxation or AI governance writes.
+
+Install current locked dependencies (CVXPY/CLARABEL), apply migrations through **0008**, and restart current backend/frontend processes. Migration 0006 fixes persisted tool-call ordering; 0007 stores optimization/stress aggregates; 0008 stores research model reviews. Existing APIs/migrations remain compatible.
+
+1. In Demo Mode open **Portfolio Optimization**. Select 20% maximum position weight and 15% one-way turnover; run and inspect actual status, risk comparison and residuals.
+2. Export, reproduce saved inputs, then try zero turnover to see the conflicting-cap infeasibility. No proposed allocation is invented.
+3. Calculate the **risk–turnover curve** and inspect individual points. Run labeled sensitivity variations; exact sector/asset keys are listed in advanced settings. A return frontier stays disabled until complete sourced assumptions are entered.
+4. Compare identical sector/direct or exactly covered historical scenarios. Synthetic replay is explicitly labeled and cannot stand for an actual market event.
+5. Review the candidate's evidence in **Model governance**. Only explicit human actions, substantive notes and successful reproduction can advance it. All approval scope is methodological research.
+6. In **AI Risk Assistant**, select a saved optimization or use the risk-reduction example. The backend assesses actual achieved reduction under the requested turnover cap.
+
+[Methodology](docs/optimization_methodology.md) · [constraints](docs/optimization_constraints.md) · [architecture](docs/optimization_architecture.md) · [governance](docs/model_governance.md) · [executed synthetic report](docs/research/portfolio_optimization_validation.md) · [validation commands](docs/optimization_validation.md).
 
 ## Start locally
 
@@ -198,7 +219,7 @@ Regenerate the deterministic demo with `backend/.venv/bin/python data/sample/gen
 
 Volatility uses sample standard deviation and 252 observed days/year. Historical VaR uses the inverse empirical CDF of **loss = −return**, at a **one-trading-day** horizon. All-gain samples can legitimately have negative VaR. The displayed path applies today's weights to past adjusted returns and is **not actual historical account performance**. Numbers include window, confidence, sample size, source and as-of metadata. See [formulas and assumptions](docs/quant_methodology.md).
 
-Holdings analysis excludes cash, derivatives, margin funding, positions, execution costs, taxes and liquidity. Kite sector data is Unknown. Uploaded adjustment, data permissions, security mappings, and continuity are user assertions; the application cannot independently certify them. VaR does not bound maximum possible loss or guarantee future coverage. Risk-minimizing investment recommendations remain planned.
+Holdings analysis excludes cash, derivatives, margin funding, positions, execution costs, taxes and liquidity. Kite sector data is Unknown. Uploaded adjustment, data permissions, security mappings, and continuity are user assertions; the application cannot independently certify them. VaR does not bound maximum possible loss or guarantee future coverage. Phase 5 provides constrained research allocations; it does not establish investment suitability or executable orders.
 
 Private saved runs currently belong to their initiating active browser session. Server restart or expiry invalidates that session; durable identity/recovery is planned. Stored rows remain private and are not reassigned to new sessions. Historical calendar continuity and adjustment status remain source assertions; named market events require genuine coverage. Monte Carlo sampling noise does not include historical parameter uncertainty or model risk.
 

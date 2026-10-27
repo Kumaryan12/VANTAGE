@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { RiskSelection } from "@/lib/advanced-risk";
+import type { OptimizationJob } from "@/lib/optimization";
 import type { Job } from "@/lib/research";
 import {
   factValue,
@@ -39,6 +40,12 @@ export function AIAssistant({
   const [consent, setConsent] = useState(false);
   const [experiment, setExperiment] = useState("");
   const [active, setActive] = useState("");
+  const [optimization, setOptimization] = useState("");
+  const optimizations = useQuery({
+    queryKey: ["optimization-history"],
+    queryFn: () => api<OptimizationJob[]>("/v1/optimization/runs"),
+    enabled: ready,
+  });
   const [documentIds, setDocumentIds] = useState<string[]>([]);
   const status = useQuery({
     queryKey: ["ai-status"],
@@ -94,6 +101,7 @@ export function AIAssistant({
           mode: selection.mode,
           dataset_id: selection.dataset_id ?? null,
           experiment_id: experiment || null,
+          optimization_run_id: optimization || null,
           document_ids: documentIds,
           confidence: selection.confidence,
           window: selection.window,
@@ -187,6 +195,30 @@ export function AIAssistant({
               </select>
             </label>
           </div>
+          <label>
+            Optimization context
+            <select
+              aria-label="Investigation optimization"
+              value={optimization}
+              onChange={(e) => setOptimization(e.target.value)}
+            >
+              <option value="">
+                No pinned optimization · new calculations use explicit question
+                limits
+              </option>
+              {optimizations.data
+                ?.filter(
+                  (r) =>
+                    ["completed", "partial"].includes(r.status) &&
+                    r.synthetic === (selection.mode === "demo"),
+                )
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.id.slice(0, 8)} · {r.kind} · {r.solver_status}
+                  </option>
+                ))}
+            </select>
+          </label>
           {experiments.data?.length === 0 && (
             <p className="form-help">
               No saved research is accessible in this session. Run an experiment
@@ -206,6 +238,18 @@ export function AIAssistant({
               required
             />
           </label>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => {
+              setOptimization("");
+              setQuestion(
+                "Can we reduce portfolio volatility by 15% without selling more than 10% of the portfolio?",
+              );
+            }}
+          >
+            Risk-reduction feasibility example
+          </button>
           {engine === "llm" && (
             <label className="agent-checkbox">
               <input

@@ -21,6 +21,7 @@ def test_saved_minimum_variance_slice_risk_and_reproduction(agent_client):
     client, engine = agent_client
     detail = completed(client)
     point = detail["result"]["points"][0]
+    assert detail["dataset"]["covariance_hash"] == point["dataset"]["covariance_hash"]
     assert point["solution"]["feasible"], point
     assert sum(point["solution"]["weights"]) == pytest.approx(1, abs=1e-12)
     assert max(point["solution"]["weights"]) <= 0.2 + 1e-7
@@ -239,3 +240,60 @@ def test_identical_counterfactual_shocks_and_saved_comparison(agent_client):
             ).status_code
             == 404
         )
+
+
+def test_counterfactual_reproduction_and_result_integrity(agent_client):
+    from app.database.models import OptimizationCounterfactual
+
+    client, engine = agent_client
+    saved = completed(client)
+    original = client.post(
+        "/api/v1/optimization/counterfactual",
+        json={
+            "run_id": saved["id"],
+            "scenario": {"kind": "historical", "scenario_id": "synthetic_2026"},
+        },
+    ).json()
+    replay = client.post(f"/api/v1/optimization/counterfactuals/{original['id']}/reproduce")
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["current"] == original["current"]
+    assert replay.json()["proposed"] == original["proposed"]
+    assert replay.json()["input_hash"] == original["input_hash"]
+    with TestClient(client.app) as other:
+        assert (
+            other.post(
+                f"/api/v1/optimization/counterfactuals/{original['id']}/reproduce"
+            ).status_code
+            == 404
+        )
+    with Session(engine) as db:
+        row = db.get(OptimizationCounterfactual, original["id"])
+        row.payload = {**row.payload, "proposed": {**row.payload["proposed"], "pnl": 1}}
+        db.commit()
+    assert client.get(f"/api/v1/optimization/runs/{saved['id']}/counterfactuals").status_code == 409
+    assert (
+        client.post(f"/api/v1/optimization/counterfactuals/{original['id']}/reproduce").status_code
+        == 409
+    )
+
+
+def test_worker_solver_failure_has_no_partial_allocation_and_releases_capacity(
+    agent_client, monkeypatch
+):
+    import app.optimization.service as service
+
+    client, _ = agent_client
+    original = service.calculate_point
+
+    def failed(*args, **kwargs):
+        raise RuntimeError("Upstream private response must never leak")
+
+    monkeypatch.setattr(service, "calculate_point", failed)
+    response = client.post("/api/v1/optimization/run", json={})
+    assert response.status_code == 202
+    queue.futures[response.json()["id"]].result(timeout=30)
+    detail = client.get(f"/api/v1/optimization/runs/{response.json()['id']}").json()
+    assert detail["status"] == "failed" and detail["result"] is None
+    assert "private" not in str(detail["error"])
+    monkeypatch.setattr(service, "calculate_point", original)
+    assert completed(client)["status"] == "completed"

@@ -128,3 +128,30 @@ Bounds: question 8–1600 chars; up to four selected risk runs, twenty documents
 PDF files are limited to 5 MB (multipart stream 6 MB), 100 pages and bounded extracted text/chunks; unsupported/unsafe extraction is reported as failed processing. Semantic indexing and queries require explicit external processing permission; missing semantic coverage/provider failure preserves keyword retrieval with warnings. Exact source quotes and pages are revalidated before an answer is published. Deleted documents cannot support new citations.
 
 The final response is structured: server-composed findings, copied verified claims with units/as-of/source references, exact citations and mandatory limitations. Arbitrary provider financial prose is rejected. See [agent architecture](agent_architecture.md), [tool schemas](agent_tool_contracts.md), [financial RAG](financial_rag.md) and [evaluation protocol](agent_evaluation.md).
+
+## Phase 5 — optimization and local governance
+
+All routes retain browser-session ownership, strict input schemas, no-store responses, same-origin mutation protection and typed errors. No owner ID is accepted as authorization. Numerical/null/error semantics and units are defined in [methodology](optimization_methodology.md).
+
+| Method / route | Contract |
+| --- | --- |
+| POST `/api/v1/optimization/run`, `/feasibility` | `OptimizationRequest` → 202 saved bounded job; feasible status requires independent checks |
+| POST `/api/v1/optimization/frontier` | `FrontierRequest`: base policy plus risk_turnover budgets or explicitly sourced efficient return targets, max 8 |
+| POST `/api/v1/optimization/sensitivity` | Base plus up to 8 labeled variations, all windows validated before enqueueing |
+| GET `/api/v1/optimization/constraints` | Policy JSON schema, defaults and sleeve/cost/turnover interpretation |
+| GET `/api/v1/optimization/runs` | Owned paginated jobs; explicit solver outcomes |
+| GET `/api/v1/optimization/runs/{id}` | Saved parameters, actual dataset/covariance/result, immutable references/hashes, versions and warnings |
+| POST `/api/v1/optimization/runs/{id}/reproduce` | 202 child run from verified saved inputs without provider access; match/tolerances retained |
+| POST `/api/v1/optimization/compare` | 2–4 distinct feasible single runs with identical economic/risk settings; structured mismatch error otherwise |
+| POST `/api/v1/optimization/counterfactual` | Saved run/point plus strict Phase 2 `StressRequest`; identical current/proposed outputs and immutable scenario artifact |
+| GET `/api/v1/optimization/runs/{id}/counterfactuals` | Owned scenario history with result/version/input integrity checks |
+| POST `/api/v1/optimization/counterfactuals/{id}/reproduce` | Recompute identical scenario from verified original artifact and allocation inputs |
+| POST `/api/v1/governance/models` | Register owned optimization/forecast source as candidate only |
+| GET `/api/v1/governance/models`, `/models/{id}` | Owned registry, original/current evidence, current status and permitted next transitions |
+| GET `/api/v1/governance/sources` | Owned Phase 3 model choices for explicit registration |
+| POST `/api/v1/governance/models/{id}/review` | Explicit human/research acknowledgements, allowed status, rationale and required eight assessment notes; methodology_research scope only |
+| GET `/api/v1/governance/events` | Owned chronological review events; optional owned model filter |
+
+Optimization job status differs from solver status: a completed job can correctly contain an infeasible solution. Partial studies preserve solver failures; failed/interrupted jobs never claim completion. Feasible inaccurate outcomes remain visibly inaccurate. Invalid/uncovered inputs return typed 422, owner failures 404, integrity/comparison/version conflicts 409 and saturated bounded queues 503. No generic 200 response implies financial feasibility.
+
+`InvestigationRequest` additionally accepts either `optimization_run_id` or explicit `optimization_parameters`, never both. Explicit parameters must match investigation source/confidence/window; policy percentages cannot be altered by provider tool arguments. Read-only tools do not expose review/order endpoints.

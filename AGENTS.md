@@ -1,15 +1,15 @@
 # VANTAGE engineering conventions
 
-VANTAGE is a read-only portfolio risk and research application. Phases 1–4 are implemented; constrained optimization and production hardening remain planned.
+VANTAGE is a read-only portfolio risk and research application. Phases 1–5 are implemented as local research workflows; Phase 6 production hardening remains planned.
 
-- Keep numerical finance in `backend/app/risk`; forecasting in `backend/app/ml`; never calculate risk or ML metrics in the UI or an LLM.
+- Keep risk mathematics in `backend/app/risk`, optimization in `backend/app/optimization` and forecasting in `backend/app/ml`; never calculate risk or ML metrics in the UI or an LLM.
 - Never fabricate real prices, API results, backtests, or test outcomes. Label synthetic data throughout.
 - Do not add order submission, shell tools for agents, or client-side broker secrets.
 - Real holdings must never fall back to demo history. Missing coverage is a typed error.
 - Keep source, adjustment, currency, observation date, retrieval time, and content hash with history.
 - Tests are required for meaningful financial calculations and adapter error/security behavior.
 - Use Python 3.12+, FastAPI/Pydantic, SQLAlchemy/Alembic, NumPy/Pandas, and Next.js/TypeScript.
-- Add dependencies only for implemented functionality. Future optimization and production hardening live in the roadmap.
+- Add dependencies only for implemented functionality. Future research and Phase 6 production hardening live in the roadmap.
 - Use `backend/.venv/bin/pytest backend/tests` and `backend/.venv/bin/ruff check backend` from the repository root.
 - Frontend checks: `cd frontend && npm run lint && npm run typecheck && npm run build`.
 - Local startup and database migration commands are in README.md. SQLite is a local fallback; PostgreSQL is the Compose deployment database.
@@ -40,4 +40,14 @@ VANTAGE is a read-only portfolio risk and research application. Phases 1–4 are
 - Without a provider key, label deterministic execution explicitly. Live AI and external embeddings require consent. Do not send broker credentials, entire files or unnecessary account data to providers.
 - Run `backend/.venv/bin/python backend/scripts/agent_evaluate.py --no-report` against PostgreSQL after migrations 0004/0005. Include all nine browser workflows. The report-writing CLI records actual executed evidence and preserves case failures; no paid calls in CI.
 - Keep the 60-case golden expectations/thresholds independent of implementation fixes. Distinguish deterministic workflow/probe measurements from live-LLM quality and real-market validity. Do not automatically promote champions.
-- See docs/agent_architecture.md, financial_rag.md and agent_threat_model.md. Keep one backend process and existing ephemeral session ownership; durable identity/recovery/retention/distributed workers are Phase 6. Do not add Phase 5 optimization during Phase 4 maintenance.
+- See docs/agent_architecture.md, financial_rag.md and agent_threat_model.md. Keep one backend process and existing ephemeral session ownership; durable identity/recovery/retention/distributed workers are Phase 6. Preserve Phase 4 evaluation/report provenance when extending optimization.
+
+- Phase 5 optimizes only the existing held INR equity sleeve, long-only and fully invested. Unknown cash stays excluded/unknown; every holding needs approved aligned history. No new securities, invented expected returns, silent exclusions or constraints relaxed to force feasibility.
+- CVXPY/CLARABEL objectives use annual variance plus explicit decimal turnover/cost fractions. One-way turnover is `.5*sum(abs(delta weights))`; never substitute gross changes. Costs are research assumptions, not broker quotes.
+- Reuse Phase 2 covariance, tails, simulation, attribution and stress. Preserve correction diagnostics and actual worker covariance hashes. Independently verify every raw/canonical weight, bound, frozen/sector/turnover/risk/return residual and reconstructed objective. Failed/infeasible outcomes have no proposed weights.
+- Curves/sensitivities label every changed assumption. Risk-only sweeps are risk–turnover curves; efficient return frontiers require complete explicitly sourced annual return assumptions. No allocation is an executable order or a future-risk guarantee.
+- Saved allocations/studies/scenarios verify owner, input/result/artifact/covariance hashes and runtime before provider-free reproduction. Keep legacy migrations/endpoints compatible. Migrations 0006–0008 add tool sequence, optimization and local governance.
+- Governance approval is explicit session-authorized human methodological review with rationale, executed reproduction and eight assessment areas. No autonomous champion, AI approval or real-market approval scope. Session-bound review is not enterprise maker-checker.
+- Eight optimization tools accept server-pinned policies, copy sealed numerical facts and assess requested risk reduction against actual achieved reduction. Stop on errors without substituting an earlier successful allocation. Agents cannot change policies, holdings or governance.
+- Run `backend/.venv/bin/python backend/scripts/optimization_validate.py --smoke` against PostgreSQL and all twelve browser workflows. The no-flag CLI regenerates the actual synthetic optimization report. Keep both golden suites' expectations independent of implementation fixes; no paid calls in CI.
+- Read docs/optimization_methodology.md, optimization_architecture.md, optimization_constraints.md, model_governance.md and optimization_validation.md. Preserve earlier measured research reports; durable identity/recovery/retention/distributed execution remain Phase 6.

@@ -7,7 +7,7 @@ from app.optimization.contracts import OptimizationRequest
 from app.portfolios.schemas import StrictModel
 from app.risk.contracts import StressRequest
 
-WORKFLOW_VERSION = "financial-investigator-4.0.0"
+WORKFLOW_VERSION = "financial-investigator-5.0.0"
 Status = Literal["queued", "running", "completed", "limited", "failed", "cancelled", "interrupted"]
 Intent = Literal[
     "portfolio",

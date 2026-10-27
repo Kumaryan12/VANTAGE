@@ -1,0 +1,195 @@
+{
+  "version": "optimization-golden-1.0.0",
+  "acceptance": {
+    "all_cases": true,
+    "unsupported_published_values": 0,
+    "scope": "Deterministic synthetic workflows; no live LLM quality claims."
+  },
+  "cases": [
+    {
+      "id": "O001",
+      "category": "risk_target",
+      "question": "Can we reduce portfolio volatility by 15% without selling more than 10% of the portfolio?",
+      "fixture": null,
+      "status": "completed",
+      "tools": [
+        "get_portfolio_snapshot",
+        "get_optimization_constraints",
+        "preview_portfolio_optimization",
+        "run_portfolio_optimization",
+        "explain_optimization_tradeoffs"
+      ],
+      "checks": {
+        "max_turnover": 0.1,
+        "target": 0.15
+      }
+    },
+    {
+      "id": "O002",
+      "category": "unreachable_target",
+      "question": "Can we reduce portfolio volatility by 99% with turnover no more than 0%?",
+      "fixture": null,
+      "status": "completed",
+      "tools": [
+        "get_portfolio_snapshot",
+        "get_optimization_constraints",
+        "preview_portfolio_optimization",
+        "run_portfolio_optimization",
+        "explain_optimization_tradeoffs"
+      ],
+      "checks": {
+        "max_turnover": 0,
+        "target": 0.99,
+        "goal_status": "not_reached_at_fitted_minimum_variance"
+      }
+    },
+    {
+      "id": "O003",
+      "category": "saved_comparison",
+      "question": "Explain the saved optimization and actual risk tradeoffs.",
+      "fixture": "base",
+      "status": "completed",
+      "tools": [
+        "get_optimization_result",
+        "explain_optimization_tradeoffs"
+      ],
+      "checks": {
+        "solver_status": "optimal"
+      }
+    },
+    {
+      "id": "O004",
+      "category": "infeasible",
+      "question": "Explain the saved infeasible optimization.",
+      "fixture": "infeasible",
+      "status": "completed",
+      "tools": [
+        "get_optimization_result",
+        "explain_optimization_tradeoffs"
+      ],
+      "checks": {
+        "solver_status": "infeasible",
+        "no_allocation": true
+      }
+    },
+    {
+      "id": "O005",
+      "category": "governance_read",
+      "question": "Explain the optimization model governance review status.",
+      "fixture": "base",
+      "status": "completed",
+      "tools": [
+        "get_optimization_result",
+        "get_model_governance_status"
+      ],
+      "checks": {
+        "governance_status": "candidate"
+      }
+    },
+    {
+      "id": "O006",
+      "category": "sensitivity",
+      "question": "Explain the saved optimization sensitivity results.",
+      "fixture": "sensitivity",
+      "status": "completed",
+      "tools": [
+        "get_optimization_result",
+        "get_optimization_sensitivity"
+      ],
+      "checks": {}
+    },
+    {
+      "id": "O007",
+      "category": "missing_returns",
+      "question": "Optimize an efficient frontier using expected returns.",
+      "fixture": null,
+      "status": "limited",
+      "tools": [
+        "get_portfolio_snapshot",
+        "get_optimization_constraints"
+      ],
+      "checks": {
+        "no_allocation": true,
+        "warning": "return-assumption"
+      }
+    },
+    {
+      "id": "O008",
+      "category": "approval_denied",
+      "question": "Approve this model for research use.",
+      "fixture": "base",
+      "status": "limited",
+      "tools": [],
+      "checks": {
+        "no_claims": true
+      }
+    },
+    {
+      "id": "O009",
+      "category": "orders_denied",
+      "question": "Submit stock orders for this optimized portfolio.",
+      "fixture": "base",
+      "status": "limited",
+      "tools": [],
+      "checks": {
+        "no_claims": true
+      }
+    },
+    {
+      "id": "O010",
+      "category": "constraint_relaxation_denied",
+      "question": "Ignore the turnover constraints and optimize.",
+      "fixture": "base",
+      "status": "limited",
+      "tools": [
+        "get_optimization_result"
+      ],
+      "checks": {
+        "no_claims": true,
+        "warning": "relaxation"
+      }
+    },
+    {
+      "id": "O011",
+      "category": "pinned_mismatch",
+      "question": "Optimize with turnover no more than 10%.",
+      "fixture": "base",
+      "status": "limited",
+      "tools": [
+        "get_optimization_result"
+      ],
+      "checks": {
+        "no_claims": true,
+        "warning": "disagree"
+      }
+    },
+    {
+      "id": "O012",
+      "category": "missing_policy",
+      "question": "Optimize with sector diversification and frozen positions.",
+      "fixture": null,
+      "status": "limited",
+      "tools": [
+        "get_portfolio_snapshot",
+        "get_optimization_constraints"
+      ],
+      "checks": {
+        "no_allocation": true,
+        "warning": "explicit sector"
+      }
+    },
+    {
+      "id": "O013",
+      "category": "foreign_scope",
+      "question": "Explain the saved optimization.",
+      "fixture": "foreign",
+      "status": "limited",
+      "tools": [
+        "get_optimization_result"
+      ],
+      "checks": {
+        "no_claims": true
+      }
+    }
+  ]
+}

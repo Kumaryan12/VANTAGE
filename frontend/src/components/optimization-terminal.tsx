@@ -1,10 +1,18 @@
 "use client";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Play, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { Download, RotateCcw } from "lucide-react";
 import { api, money, pct } from "@/lib/api";
 import type { RiskSelection } from "@/lib/advanced-risk";
 import type { OptimizationDetail, OptimizationJob } from "@/lib/optimization";
+import { OptimizationControls } from "./optimization-controls";
+import {
+  OptimizationEvidence,
+  OptimizationStudy,
+  OptimizationStress,
+  OptimizationHistoryComparison,
+} from "./optimization-evidence";
+import { ModelGovernance } from "./model-governance";
 import { ErrorNotice } from "./error-notice";
 
 export function OptimizationTerminal({
@@ -15,8 +23,8 @@ export function OptimizationTerminal({
   ready: boolean;
 }) {
   const client = useQueryClient();
-  const [maximum, setMaximum] = useState("20");
-  const [turnover, setTurnover] = useState("15");
+  const [pointIndex, setPointIndex] = useState(0);
+  const [sort, setSort] = useState("name");
   const [active, setActive] = useState("");
   const history = useQuery({
     queryKey: ["optimization-history"],
@@ -36,20 +44,21 @@ export function OptimizationTerminal({
   });
   const busy = ["queued", "running"].includes(detail.data?.status ?? "");
   const run = useMutation({
-    mutationFn: () =>
-      api<OptimizationJob>("/v1/optimization/run", {
+    mutationFn: ({
+      path,
+      body,
+    }: {
+      path: string;
+      body: Record<string, unknown>;
+    }) =>
+      api<OptimizationJob>(`/v1/optimization/${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...selection,
-          constraints: {
-            max_weight: Number(maximum) / 100,
-            max_turnover: Number(turnover) / 100,
-          },
-        }),
+        body: JSON.stringify(body),
       }),
     onSuccess: (r) => {
       setActive(r.id);
+      setPointIndex(0);
       void client.invalidateQueries({ queryKey: ["optimization-history"] });
     },
   });
@@ -60,11 +69,12 @@ export function OptimizationTerminal({
       }),
     onSuccess: (r) => {
       setActive(r.id);
+      setPointIndex(0);
       void client.invalidateQueries({ queryKey: ["optimization-history"] });
     },
   });
   const result = detail.data;
-  const point = result?.result?.points[0];
+  const point = result?.result?.points[pointIndex];
   function download() {
     if (!result) return;
     const url = URL.createObjectURL(
@@ -78,70 +88,11 @@ export function OptimizationTerminal({
   }
   return (
     <div className="optimization-terminal">
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>
-              <SlidersHorizontal size={17} />
-              Portfolio decision laboratory
-            </h2>
-            <p>
-              Continuous long-only equity-sleeve allocation · independent
-              feasibility checks · no trading
-            </p>
-          </div>
-          <span className="subtle-badge">RESEARCH ONLY</span>
-        </div>
-        <form
-          className="optimization-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            run.mutate();
-          }}
-        >
-          <div className="optimization-controls">
-            <label>
-              Maximum position weight (%)
-              <input
-                aria-label="Optimization maximum position percent"
-                type="number"
-                min="1"
-                max="100"
-                step="0.1"
-                value={maximum}
-                onChange={(e) => setMaximum(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Maximum one-way turnover (%)
-              <input
-                aria-label="Optimization turnover percent"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={turnover}
-                onChange={(e) => setTurnover(e.target.value)}
-                required
-              />
-            </label>
-          </div>
-          <p className="form-help">
-            Minimum annual variance using the selected historical window and
-            covariance. One-way turnover is half the gross absolute weight
-            change. Unknown account cash is excluded, not assumed zero.
-            Constraints are never relaxed to produce an allocation.
-          </p>
-          <button
-            className="button primary"
-            disabled={!ready || run.isPending || busy}
-          >
-            <Play size={15} />
-            Run portfolio optimization
-          </button>
-        </form>
-      </section>
+      <OptimizationControls
+        selection={selection}
+        disabled={!ready || run.isPending || busy}
+        submit={(path, body) => run.mutate({ path, body })}
+      />
       {run.error && <ErrorNotice error={run.error} />}
       {detail.error && <ErrorNotice error={detail.error} />}
       {reproduce.error && <ErrorNotice error={reproduce.error} />}
@@ -168,6 +119,13 @@ export function OptimizationTerminal({
             </p>
           )}
         </section>
+      )}
+      {result?.result && (
+        <OptimizationStudy
+          result={result}
+          selected={pointIndex}
+          select={setPointIndex}
+        />
       )}
       {point && (
         <>
@@ -237,11 +195,24 @@ export function OptimizationTerminal({
               ))}
             </ul>
           </section>
+          <OptimizationEvidence point={point} />
           {point.solution.feasible && (
             <section className="panel optimization-allocation">
               <div className="panel-heading">
                 <div>
                   <h2>Current versus proposed allocation</h2>
+                  <label>
+                    Sort allocation
+                    <select
+                      aria-label="Sort optimization allocation"
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value)}
+                    >
+                      <option value="name">Holding name</option>
+                      <option value="proposed_weight">Proposed weight</option>
+                      <option value="change">Weight change</option>
+                    </select>
+                  </label>
                   <p>
                     Approximate value shifts at the fixed sleeve notional, not
                     executable orders
@@ -260,26 +231,40 @@ export function OptimizationTerminal({
                     </tr>
                   </thead>
                   <tbody>
-                    {point.allocations.map((a) => (
-                      <tr key={a.instrument}>
-                        <td>
-                          {a.name}
-                          <small className="cell-note">
-                            {a.instrument} · {a.sector}
-                          </small>
-                        </td>
-                        <td className="numeric">{pct(a.current_weight, 3)}</td>
-                        <td className="numeric">{pct(a.proposed_weight, 3)}</td>
-                        <td className="numeric">{pct(a.change, 3)}</td>
-                        <td className="numeric">
-                          {money(a.approximate_notional_change)}
-                        </td>
-                      </tr>
-                    ))}
+                    {[...point.allocations]
+                      .sort((a, b) =>
+                        sort === "name"
+                          ? a.name.localeCompare(b.name)
+                          : b[sort as "proposed_weight" | "change"] -
+                            a[sort as "proposed_weight" | "change"],
+                      )
+                      .map((a) => (
+                        <tr key={a.instrument}>
+                          <td>
+                            {a.name}
+                            <small className="cell-note">
+                              {a.instrument} · {a.sector}
+                            </small>
+                          </td>
+                          <td className="numeric">
+                            {pct(a.current_weight, 3)}
+                          </td>
+                          <td className="numeric">
+                            {pct(a.proposed_weight, 3)}
+                          </td>
+                          <td className="numeric">{pct(a.change, 3)}</td>
+                          <td className="numeric">
+                            {money(a.approximate_notional_change)}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
             </section>
+          )}
+          {result && (
+            <OptimizationStress result={result} pointIndex={pointIndex} />
           )}
           <section className="panel optimization-residuals">
             <div className="panel-heading">
@@ -316,7 +301,14 @@ export function OptimizationTerminal({
                       <td className="numeric">
                         {r.violation.toExponential(2)}
                       </td>
-                      <td>{r.binding ? "Binding" : "Within bounds"}</td>
+                      <td>
+                        {r.binding ? "Binding" : "Within bounds"}
+                        {r.utilization !== null && (
+                          <small className="cell-note">
+                            Utilization {pct(r.utilization, 2)}
+                          </small>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -331,6 +323,10 @@ export function OptimizationTerminal({
                       solver: point.solution.solver,
                       validation: point.solution.validation,
                       covariance: point.dataset.covariance_diagnostics,
+                      source: point.dataset.source,
+                      parameters: point.parameters,
+                      universe: point.dataset.instruments,
+                      monte_carlo: point.comparison,
                       covariance_hash: point.dataset.covariance_hash,
                       input_hash: result?.input_hash,
                       runtime: result?.runtime,
@@ -349,6 +345,11 @@ export function OptimizationTerminal({
           </section>
         </>
       )}
+      <OptimizationHistoryComparison runs={history.data ?? []} />
+      <ModelGovernance
+        ready={ready}
+        refreshKey={`${active}:${detail.data?.status}`}
+      />
       <section className="panel optimization-history">
         <div className="panel-heading">
           <div>
@@ -386,7 +387,10 @@ export function OptimizationTerminal({
                   <td>
                     <button
                       className="text-button"
-                      onClick={() => setActive(r.id)}
+                      onClick={() => {
+                        setActive(r.id);
+                        setPointIndex(0);
+                      }}
                     >
                       Open optimization
                     </button>

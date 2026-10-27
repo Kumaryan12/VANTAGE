@@ -367,6 +367,7 @@ class OptimizationQueue:
                     old = owned(db, row.reproduction_of, row.owner)
                     if old.result:
                         result["reproduction_match"] = reproduction_matches(old.result, result)
+                row.dataset = points[0]["dataset"]
                 row.result = result
                 row.result_hash = digest(result)
                 row.status = (

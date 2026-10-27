@@ -107,12 +107,12 @@ def compare(body: OptimizationCompareRequest, session: Browser, db: DB):
         )
     keys = {
         (
-            tuple(r.dataset["current_weights"]),
-            tuple(r.dataset["sectors"]),
-            r.dataset["as_of"],
-            r.dataset["sleeve_notional"],
-            r.dataset["price_value_hash"],
-            r.dataset["covariance_hash"],
+            tuple(r.result["points"][0]["dataset"]["current_weights"]),
+            tuple(r.result["points"][0]["dataset"]["sectors"]),
+            r.result["points"][0]["dataset"]["as_of"],
+            r.result["points"][0]["dataset"]["sleeve_notional"],
+            r.result["points"][0]["dataset"]["price_value_hash"],
+            r.result["points"][0]["dataset"]["covariance_hash"],
             r.parameters["confidence"],
             r.parameters["seed"],
             r.parameters["simulations"],

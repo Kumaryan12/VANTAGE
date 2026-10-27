@@ -67,6 +67,7 @@ export type SleeveRisk = {
       sector: string;
       weight: number;
       percentage_contribution: number | null;
+      component_annualized_volatility: number;
     }[];
     reconciliation_residual: number;
     note: string;
@@ -78,12 +79,17 @@ export type OptimizationPoint = {
   parameters: Record<string, unknown>;
   dataset: OptimizationDataset;
   covariance: number[][];
+  allocation_stability?: {
+    one_way_distance_from_base: number | null;
+    interpretation: string;
+  };
   solution: OptimizationSolution;
   current_metrics: SleeveRisk;
   comparison: {
     current: SleeveRisk;
     proposed: SleeveRisk;
     delta: Record<string, number>;
+    relative_delta: Record<string, number | null>;
     volatility_reduction_fraction: number | null;
     policy: string;
     warnings: string[];
@@ -139,6 +145,15 @@ export type OptimizationDetail = OptimizationJob & {
   runtime: Record<string, string | null>;
   result: {
     kind: string;
+    frontier_mode: string | null;
+    plot: {
+      point_index: number;
+      label: string;
+      x: number | null;
+      annual_volatility: number | null;
+      status: string;
+      feasible: boolean;
+    }[];
     points: OptimizationPoint[];
     warnings: string[];
     reproduction_match: boolean | null;

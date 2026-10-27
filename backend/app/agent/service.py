@@ -541,11 +541,29 @@ class InvestigationQueue:
                             "A prior bounded tool is still finishing; retry later.",
                             503,
                         )
+                    tool_request = request
+                    if state.intent == "optimization" and not request.optimization_run_id:
+                        calculated = next(
+                            (
+                                e
+                                for e in reversed(state.evidence)
+                                if e.tool == "run_portfolio_optimization"
+                                and e.source_type == "optimization_run"
+                            ),
+                            None,
+                        )
+                        if calculated:
+                            tool_request = request.model_copy(
+                                update={
+                                    "optimization_run_id": calculated.source_id,
+                                    "optimization_parameters": None,
+                                }
+                            )
                     future = self.tool_executor.submit(
                         self.run_tool,
                         engine,
                         row.owner,
-                        request,
+                        tool_request,
                         Portfolio.model_validate(row.context["portfolio"]),
                         row.context["snapshot_id"],
                         name,
@@ -589,6 +607,9 @@ class InvestigationQueue:
                             error={"code": error.code, "message": redact(error.message)},
                         )
                         state.errors.append(call["error"])
+                        if state.intent == "optimization":
+                            selection = default_selection(state.evidence)
+                            break
                         if error.status in (403, 409, 504) or error.code in ("TOOL_NOT_ALLOWED",):
                             raise
                     finally:

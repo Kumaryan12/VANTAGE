@@ -64,3 +64,37 @@ def test_explicit_research_review_transitions_require_evidence_and_human_ack(age
         )
         assert other.get(f"/api/v1/governance/events?model_id={model_id}").status_code == 404
         assert other.get("/api/v1/governance/models").json() == []
+
+
+def test_forecast_registry_requires_immutable_inputs_and_keeps_phase3_role(agent_client):
+    from sqlalchemy.orm import Session
+    from test_agent_core import completed_research
+
+    from app.database.models import ResearchExperiment, RiskInputArtifact
+    from app.ml.service import queue as research_queue
+
+    client, engine = agent_client
+    experiment = completed_research(client)
+    source = client.get(f"/api/v1/ml/models?experiment_id={experiment}").json()[0]
+    candidate = client.post(
+        "/api/v1/governance/models", json={"source_type": "forecast", "source_id": source["id"]}
+    )
+    assert candidate.status_code == 201, candidate.text
+    model_id = candidate.json()["id"]
+    assert candidate.json()["current_validation"]["automated_checks"]["input_integrity"]
+    assert not candidate.json()["current_validation"]["validation_ready"]
+    replay = client.post(f"/api/v1/ml/experiments/{experiment}/reproduce")
+    research_queue.futures[replay.json()["id"]].result(timeout=30)
+    updated = client.get(f"/api/v1/governance/models/{model_id}").json()
+    assert updated["current_validation"]["validation_ready"]
+    assert updated["status"] == "candidate"
+    with Session(engine) as db:
+        row = db.get(ResearchExperiment, experiment)
+        artifact = db.get(RiskInputArtifact, row.input_artifact_id)
+        artifact.payload = {**artifact.payload, "tampered": True}
+        db.commit()
+    updated = client.get(f"/api/v1/governance/models/{model_id}").json()
+    assert not updated["current_validation"]["automated_checks"]["input_integrity"]
+    assert not updated["current_validation"]["validation_ready"]
+    unchanged = client.get(f"/api/v1/ml/models?experiment_id={experiment}").json()[0]
+    assert unchanged["role"] == source["role"]

@@ -54,10 +54,19 @@ No verified actual market-event loss is claimed without a permitted covered data
 
 [Executed measurements](agent_evaluation_results.md) cover synthetic workflows/probes, not live-LLM accuracy or real-market validity. Actual paid-provider contract smoke is opt-in and remains unexecuted without credentials. Richer free-form synthesis, independent provider/retrieval quality studies, verified OCR/table extraction and broader source coverage are future research; production hardening remains Phase 6.
 
-## Phase 5 — optimization and governance
+## Phase 5 — implemented local optimization and research governance
 
-CVXPY minimum variance with long-only, position/sector/turnover constraints and transaction costs; policy checks; evidence-grounded reports; trace and model/data versioning; safety evaluation.
+- [x] CVXPY/CLARABEL objectives, analytical tests, independent residual/termination validation and explicit infeasibility diagnostics
+- [x] Position/asset/frozen/sector/Unknown policies, one-way turnover, symmetric/asymmetric assumed costs
+- [x] Matched Phase 2 risk/attribution, actual risk–turnover curves and sourced conditional return frontiers
+- [x] Six-axis sensitivity and immutable identical counterfactual stress/reproduction
+- [x] Owner-scoped saved jobs/studies, artifact/covariance/result hashes, runtime-aware reproduction and comparable-run checks
+- [x] Explicit human research-review lifecycle, eight assessments, evidence gates and event audit; no AI approval
+- [x] Eight pinned optimization investigator tools and separate fixed optimization cases
+- [x] Functional decision laboratory and governance dashboard, synthetic measured report and regression verification
+
+[Executed report](research/portfolio_optimization_validation.md), [methodology](optimization_methodology.md) and [validation](optimization_validation.md). Synthetic in-sample minima are not evidence of future investment performance. Cash/execution/impact/lot-size constraints, durable reviewer roles and real-market approval are not implemented. Future quantitative research may consider independently validated forecasts, broader eligible universes and discrete allocations, each requiring its own data/methodology review.
 
 ## Phase 6 — production hardening
 
-Identity/authorization, encrypted durable credential storage, session and provider rate limits, retention/backup policies, performance and adversarial testing, deployment observability, CI/CD, and operational runbooks. No execution/trading scope is authorized.
+Durable identity and source ownership/recovery; independent reviewer roles; encrypted credential storage; session/provider/compute quotas across processes; data/document/model retention, deletion, backups and tested restore; durable distributed queues and cancellation; hardened parser isolation; performance/adversarial testing; production secret management, deployment observability and operating runbooks. CI already verifies local/PostgreSQL workflows; production deployment/CD and full image-stack validation remain separate. Validate live-provider quality and independent real-market research before making those claims. No execution/trading scope is authorized.

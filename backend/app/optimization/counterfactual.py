@@ -162,6 +162,7 @@ def verified_counterfactual(db, row, run, owner):
             "point": result["point_index"],
             "artifact": artifact.content_hash,
             "scenario": result["scenario"],
+            "version": VERSION,
         }
     )
     if expected != result["input_hash"]:
