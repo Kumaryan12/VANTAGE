@@ -83,13 +83,11 @@ test("document citations, hypothetical shock and executed golden evaluation rema
   await page
     .getByRole("button", { name: "AI Risk Assistant", exact: true })
     .click();
-  await page
-    .getByLabel("Financial PDF", { exact: true })
-    .setInputFiles({
-      name: "synthetic-risk.pdf",
-      mimeType: "application/pdf",
-      buffer: pdf,
-    });
+  await page.getByLabel("Financial PDF", { exact: true }).setInputFiles({
+    name: "synthetic-risk.pdf",
+    mimeType: "application/pdf",
+    buffer: pdf,
+  });
   await page
     .getByLabel("Document source", { exact: true })
     .fill("Permitted synthetic company disclosure");
@@ -99,10 +97,10 @@ test("document citations, hypothetical shock and executed golden evaluation rema
   await page.getByLabel("Document reporting period").fill("FY2026");
   await page.getByLabel("Document processing permission").check();
   await page.getByRole("button", { name: "Upload and index PDF" }).click();
-  const document = page
+  const documentRow = page
     .locator(".document-library tbody tr")
     .filter({ hasText: "synthetic-risk.pdf" });
-  await expect(document).toContainText("ready", { timeout: 20000 });
+  await expect(documentRow).toContainText("ready", { timeout: 20000 });
   await page.getByLabel("Use document synthetic-risk.pdf").check();
   await page
     .getByLabel("Financial document search", { exact: true })
