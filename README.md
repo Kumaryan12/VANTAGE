@@ -2,7 +2,7 @@
 
 **AI-Powered Portfolio Risk & Quantitative Research Platform**
 
-VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–3 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible saved runs and controlled volatility forecasting research; later phases add investigations and optimization. Financial results come from tested Python calculations, never an LLM.
+VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–4 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible forecasting research and evidence-grounded financial investigations; later phases add optimization and production hardening. Financial results come from tested Python calculations, never an LLM.
 
 ## Implemented scope
 
@@ -16,7 +16,7 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Next.js dark dashboard with working portfolio/source selection, confidence/window controls, risk/sector charts, holdings search/sort, imports, context retrieval, visible errors, and JSON risk-run export.
 - Local startup, PostgreSQL Compose deployment configuration, numerical/API/security tests, browser workflow tests, and GitHub Actions.
 
-**Planned:** optimization, document retrieval, LangGraph investigations, and investigation reports. These are not presented as working features. See [roadmap](docs/roadmap.md).
+**Planned:** constrained optimization and Phase 6 production hardening. See [roadmap](docs/roadmap.md).
 
 ## Phase 2 — advanced quantitative risk
 
@@ -57,7 +57,32 @@ backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
 backend/.venv/bin/python backend/scripts/research_report.py
 ```
 
-Restart older app processes after upgrading. The CLI generates evidence from actual model runs and validates reproduction. Browser histories belong to their own session. Optional `MODEL_ARTIFACT_DIR` stores private text/JSON checkpoints (ignored by Git); `BUILD_COMMIT` identifies container revisions. Use a single backend worker. Persist/back up database and artifact storage together. Durable identity/session recovery and distributed scheduling remain future work. Phase 4 agents are not implemented.
+Restart older app processes after upgrading. The CLI generates evidence from actual model runs and validates reproduction. Browser histories belong to their own session. Optional `MODEL_ARTIFACT_DIR` stores private text/JSON checkpoints (ignored by Git); `BUILD_COMMIT` identifies container revisions. Use a single backend worker. Persist/back up database and artifact storage together. Durable identity/session recovery and distributed scheduling remain future work. Phase 4 adds controlled investigations below.
+
+## Phase 4 — AI Risk Assistant
+
+The new terminal runs bounded multistep investigations using **14 authorized tools** wrapping existing portfolio, risk, stress and ML services plus private financial-document retrieval. Financial values, units, dates, source IDs and page quotes are verified deterministically before publication; hypothetical P&L contributions reconcile to the original engine. Model comparison retains synthetic/current-weight/sample/uncertainty qualifications and original experiment provenance. No trading or automatic model promotion is available.
+
+1. Open **AI Risk Assistant**. Without credentials, **AI provider not configured** is explicit; choose **Deterministic demonstration · no LLM** to execute actual backend tools through scripted routing.
+2. For model comparison, first run an experiment in **Quantitative Research in the same browser session**, then use the example question or select it. Inaccessible/expired-session experiments produce limitations, never a fallback to someone else's results.
+3. Ask **Which holdings contribute most to my portfolio risk?** or use **Sector shock example**. Inspect verified financial tables, saved run IDs, assumptions, ordered activity and evidence. Scenarios are direct hypothetical shocks, not forecasts.
+4. Upload a permitted text PDF with source/permission metadata in the **Financial document library**. Wait for ready status, select it as context, and use **Document research example**. Inspect exact cited page passages or download the source. Keyword retrieval needs no AI key; external embeddings require explicit separate consent.
+5. **Run golden evaluation** to execute 60 isolated synthetic workflow/security cases and inspect actual checks/failures. These measurements do not establish live-LLM accuracy or real-market validity.
+
+For live AI, set backend-only `OPENAI_API_KEY` and `LLM_MODEL`, restart the backend, choose the configured provider and consent to sending minimized redacted evidence. This repository implements OpenAI Responses with strict function/answer schemas behind a pluggable interface. Provider integration is mock-tested; no paid-provider quality result is claimed without an opt-in actual run. Use one backend process.
+
+```bash
+backend/.venv/bin/pip install -r backend/requirements.lock
+backend/.venv/bin/pip install --no-deps -e backend
+backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
+backend/.venv/bin/python backend/scripts/agent_evaluate.py
+# Optional actual paid-provider smoke, only after deliberately configuring a key:
+# VANTAGE_LIVE_AI=1 backend/.venv/bin/python backend/scripts/smoke_live_ai.py
+```
+
+Migrations 0004/0005 add owned investigations, steps, tool calls, evidence, evaluations and PDF/chunk indexes. Private PDFs live under `DOCUMENT_STORAGE_DIR`; back up database and both artifact volumes together. Deletion cleans indexes/files and marks old citations unavailable. Session expiry/restart still prevents recovery; parser sandboxing, identity, retention, global quotas and distributed execution remain Phase 6 work.
+
+See [agent architecture/setup](docs/agent_architecture.md), [financial RAG](docs/financial_rag.md), [tool schemas](docs/agent_tool_contracts.md), [evaluation protocol](docs/agent_evaluation.md), [executed results](docs/agent_evaluation_results.md) and [threat model](docs/agent_threat_model.md).
 
 ## Start locally
 
@@ -142,6 +167,12 @@ All providers require network access; optional live services can fail independen
 | `ALPHA_VANTAGE_API_KEY` | Optional backend-only adjusted-history credential |
 | `FRED_API_KEY` | Optional backend-only macro credential |
 | `POSTGRES_PASSWORD` | Compose local password; replace for any nonlocal environment |
+| `OPENAI_API_KEY`, `LLM_MODEL` | Optional backend-only AI key/model; default model `gpt-4.1-mini` |
+| `LLM_TIMEOUT_SECONDS` | Bounded provider timeout, default 12 seconds |
+| `EMBEDDING_MODEL` | Optional consent-based semantic index, default `text-embedding-3-small` |
+| `DOCUMENT_STORAGE_DIR` | Private PDF storage, default `artifacts/documents` |
+| `DOCUMENT_CHUNK_CHARS`, `DOCUMENT_CHUNK_OVERLAP` | Page-local text chunking, default 1800/180 |
+| `LLM_INPUT_USD_PER_MILLION`, `LLM_OUTPUT_USD_PER_MILLION` | Optional account-specific cost estimates; omitted means unavailable |
 
 Phase 2 needs no additional credentials. No secret uses the `NEXT_PUBLIC_` prefix. Do not commit `.env` or private data.
 
@@ -176,10 +207,11 @@ The application is designed for local single-user research. Public deployment re
 ## Repository
 
 ```text
-backend/app/   API, broker, history, provider, persistence, pure risk modules
+backend/app/   API, broker, history, providers, risk/ML engines, agent and PDF evidence
 backend/tests/ independent financial cases, API workflows, auth and adapter tests
 frontend/      Next.js App Router, TypeScript, Tailwind CSS, Recharts, TanStack Query
-data/sample/   versioned synthetic fixture and generator
+data/sample/   versioned synthetic market fixture and generator
+data/evaluations/  curated 60-case agent dataset and retained regression failures
 data/schemas/  historical data schema
 docs/          architecture, methodology, sources, contracts, roadmap, security
 infra/         local PostgreSQL development override

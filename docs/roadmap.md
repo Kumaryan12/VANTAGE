@@ -40,9 +40,19 @@ No verified actual market-event loss is claimed without a permitted covered data
 
 [Report](research/volatility_model_comparison.md) and [protocol/limitations](research_protocol.md). Synthetic evidence does not establish economic ML superiority. Future research includes independent point-in-time market datasets, explicit feature ablation studies, richer tail models and multivariate covariance. Distributed workers, persistent identity, retention and deployment remain Phase 6.
 
-## Phase 4 — agentic investigations
+## Phase 4 — implemented local investigation workflow
 
-Document ingestion and hybrid retrieval, typed authorized quantitative tools, explicit LangGraph state machine, citation validation, prompt-injection defenses, golden evaluation questions, and numerical verification. LLMs must never invent financial calculations.
+- [x] Typed bounded single-investigator state machine, optional provider interface, explicit no-key/demo states
+- [x] Fourteen authorized read-only financial/research/retrieval tools; existing quantitative engines reused
+- [x] Verified model comparison, portfolio exposures/contributions and reconciled user-requested hypothetical stress
+- [x] Private permitted PDF ingestion, exact page/chunk metadata, keyword and opt-in embedding/hybrid retrieval
+- [x] Deterministic value/unit/date/hash/citation verification and conservative structured response composition
+- [x] Owned investigation/evidence/activity/evaluation records and source deletion cleanup
+- [x] Executed 60-case deterministic golden suite with fixed thresholds and retained failures
+- [x] AI Risk Assistant, evidence/citation inspection, document library, history and actual evaluation dashboard
+- [x] Numerical/security/API/provider-mock/PostgreSQL/frontend/browser regression checks
+
+[Executed measurements](agent_evaluation_results.md) cover synthetic workflows/probes, not live-LLM accuracy or real-market validity. Actual paid-provider contract smoke is opt-in and remains unexecuted without credentials. Richer free-form synthesis, independent provider/retrieval quality studies, verified OCR/table extraction and broader source coverage are future research; production hardening remains Phase 6.
 
 ## Phase 5 — optimization and governance
 

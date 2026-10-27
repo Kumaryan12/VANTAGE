@@ -95,3 +95,36 @@ Strict typed schemas, same-origin session authentication, private owner filterin
 Training supports expanding/rolling estimation, bounded history/train/validation/test windows, refit cadence, rolling 20/60, fixed EWMA lambda, variance floor, deterministic LightGBM search/seed/rounds/learning rate, basic/full features and optional aligned context dataset/benchmark instrument. No future or mixed-mode context is accepted. See [research protocol](research_protocol.md) for the exact boundaries.
 
 A sample request is `{ "mode":"demo", "scheme":"expanding", "test_size":100, "max_trees":120, "search_candidates":3, "seed":42 }`. Poll the returned id, then request its models/comparison. Failed fits remain null with failures; low-sample statistical tests are null with reasons rather than zero. Model origins use observed dates; the unscored final prediction has no invented next-date. Authentication/ownership errors remain 401/404, invalid inputs/windows 422, ineligible/not-ready evidence or integrity/version failures use structured errors (typically 409). Jobs are bounded to one per backend process; interrupted jobs do not silently resume.
+
+## Phase 4 — financial investigations and documents
+
+All new routes use existing same-origin mutation protection, opaque session ownership, structured errors and no-store responses. No arbitrary account/SQL/shell/URL/trading/governance input is accepted. Models in OpenAPI are the typed contract; flexible evidence/registry metadata are distinct from strictly verified financial facts.
+
+| Method and route | Request / response |
+| --- | --- |
+| GET `/api/v1/agent/status` | Provider/model availability, explicit no-key message, labeled demo and embedding capabilities; never credentials |
+| POST `/api/v1/agent/investigate` | Strict `InvestigationRequest`; 202 job id/status/stage. `engine:demo` is deterministic; `engine:llm` needs configuration and `external_data_consent:true` |
+| GET `/api/v1/agent/investigations?limit=20&offset=0` | SQL-paginated current-session summaries |
+| GET `/api/v1/agent/investigations/{id}` | Owned state, original context/provider/workflow, usage/budgets, verification, error and validated answer |
+| POST `/api/v1/agent/investigations/{id}/cancel` | Request cancellation; in-flight bounded work may finish but its output cannot publish an answer |
+| GET `/api/v1/agent/investigations/{id}/trace` | Ordered concise activity and timings; no private chain-of-thought |
+| GET `/api/v1/agent/investigations/{id}/tool-calls` | Sanitized strict-call arguments, actual name/status/timing/error/evidence reference |
+| GET `/api/v1/agent/investigations/{id}/evidence` | Owned checksummed source records, facts, provenance and bounded data |
+| POST `/api/v1/research/documents` | Multipart `file`, `source`, `permitted:true`; optional company/reporting period/publication date and semantic/external-consent flags; 202 processing record |
+| GET `/api/v1/research/documents?company=…&limit=20&offset=0` | Owned active library records and extraction/index status |
+| GET `/api/v1/research/documents/{id}` | Version/hash/metadata/status/page and chunk counts/errors |
+| DELETE `/api/v1/research/documents/{id}` | Remove private file/index/vectors, tombstone metadata, purge copied passages/quotes and mark old citations unavailable |
+| GET `/api/v1/research/documents/{id}/file` | Owner-authorized checksum-verified PDF attachment, sandbox/CSP/nosniff headers |
+| GET `/api/v1/research/documents/{id}/chunks/{chunk_id}` | Exact authorized page/section/text/hash for source inspection |
+| POST `/api/v1/research/search` | Strict query/document IDs/company/limit and optional semantic consent; ranked real passages, method/scores/warnings and index version |
+| POST `/api/v1/agent/evaluation-runs` | 202 actual fixed golden suite in an isolated synthetic workspace; no broker data or paid requests |
+| GET `/api/v1/agent/evaluation-runs?limit=10` | Owned recent summaries/metrics; case payloads excluded from list responses |
+| GET `/api/v1/agent/evaluation-runs/{id}` | Full owned per-case expectations/checks/actual trace/failures and measured aggregate results |
+
+Example investigation: `{"question":"Compare forecasting models on QLIKE and explain limitations.","engine":"demo","mode":"demo","experiment_id":"<accessible-id>"}`. Omitting the experiment chooses only the latest accessible completed/partial experiment in the selected mode; missing coverage never falls back to another session or the checked-in report. Portfolio tools use a captured authorized snapshot. Optional dataset/run/document selections are reauthorized inside tools. Confidence/window/shrinkage controls remain explicit; a typed `scenario` must match mode/dataset and the agent permits direct hypothetical scenarios only.
+
+Bounds: question 8–1600 chars; up to four selected risk runs, twenty documents, eight tools, 24 graph steps and 5–90 seconds (60 default). Tool output cap is 60,000 bytes and timeout eight seconds. Provider context/available usage have independent bounds. No-key live requests return 503 `AI_NOT_CONFIGURED`; invalid consent/arguments 422; busy capacity 503; rate limits 429; foreign records 404; integrity/verification failures typically 409. Jobs persist `queued/running/completed/limited/failed/cancelled/interrupted` rather than inventing completion.
+
+PDF files are limited to 5 MB (multipart stream 6 MB), 100 pages and bounded extracted text/chunks; unsupported/unsafe extraction is reported as failed processing. Semantic indexing and queries require explicit external processing permission; missing semantic coverage/provider failure preserves keyword retrieval with warnings. Exact source quotes and pages are revalidated before an answer is published. Deleted documents cannot support new citations.
+
+The final response is structured: server-composed findings, copied verified claims with units/as-of/source references, exact citations and mandatory limitations. Arbitrary provider financial prose is rejected. See [agent architecture](agent_architecture.md), [tool schemas](agent_tool_contracts.md), [financial RAG](financial_rag.md) and [evaluation protocol](agent_evaluation.md).

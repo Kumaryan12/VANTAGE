@@ -1,6 +1,6 @@
 # Security boundary
 
-Local single-user read-only analysis. No order, GTT, execution, arbitrary URL fetch, shell, or LLM endpoints.
+Local single-user read-only analysis. No order, GTT, execution, arbitrary URL fetch or shell endpoints. Phase 4 adds only bounded authorized investigation/provider interfaces.
 
 Kite API secret and access tokens stay on the backend. A cryptographically random, HttpOnly, SameSite=Lax cookie identifies an in-memory expiring session. Tokens are never placed in the cookie, database, frontend bundle, browser storage, or logs. OAuth-style login uses a single-use random state bound to the initiating browser session with a ten-minute expiry. Callback uses Kite `redirect_params`; failure requires a fresh login. Session expires within 12 hours and Kite can invalidate earlier; invalid token responses clear local broker access. Logout invalidates the remote token before discarding it where possible, and always clears local access. Restart invalidates all sessions; run one backend worker.
 
@@ -16,3 +16,12 @@ Phase 2 persists private holdings snapshots and selected dated histories so runs
 ## Phase 3 model evidence
 
 Research jobs/models/forecasts/reports/artifact ZIPs use the existing opaque session owner. No model uploads, pickle loading, brokerage orders or LLM tools are introduced. Immutable input hashes and text/JSON checkpoint path containment/SHA-256 checks protect reproduction; artifacts live outside DB rows and public static files. Mutation origin checks apply to training and governance. One bounded worker and bounded histories/search/refits limit local work; multi-user quotas and distributed scheduling remain unimplemented. Ephemeral sessions cannot recover private records after lost/expired identity; persistent rows/artifacts require future retention/backup policy. See research_protocol.md.
+
+
+## Phase 4 investigation boundary
+
+Every analytical tool and persisted investigation/document/evaluation is session-scoped; documents are filtered before keyword/vector retrieval. Intent-specific allowlists, strict schemas, server-bound account/data context, deterministic numerical/citation checks and sealed evidence constrain provider outputs. No LLM can change holdings/governance or execute orders, SQL, shell or arbitrary network requests. Document text is untrusted evidence and cannot grant permissions.
+
+Provider keys stay backend-only. Live AI and external embeddings require explicit consent; relevant redacted facts/passages are minimized, raw prompts/private reasoning are not persisted, and `store:false` is requested. Redaction is not complete DLP and provider retention policies still apply. PDF originals/chunks are private plaintext research data. Fixed parser subprocess/resource limits, active-content rejection and attachment downloads reduce risk but are not a hardened OS sandbox or malware scanner.
+
+Per-session request quotas and execution budgets suit local research, not adversarial public traffic. Single-process ephemeral identity, orphaned records, incomplete retention/forensic deletion and backup operations remain Phase 6 work. Database and PDF/model artifact volumes must be protected together. See [agent_threat_model.md](agent_threat_model.md) for residual risks and [agent_architecture.md](agent_architecture.md) for cancellation/restart semantics.
