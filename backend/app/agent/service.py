@@ -445,6 +445,7 @@ class InvestigationQueue:
                             AgentToolCall(
                                 id=str(uuid4()),
                                 investigation_id=ident,
+                                sequence=state.tool_count + 1,
                                 payload={
                                     "name": str(name)[:80],
                                     "arguments": json.loads(redact(json.dumps(arguments))),
@@ -479,7 +480,9 @@ class InvestigationQueue:
                         "error": None,
                         "evidence_id": None,
                     }
-                    record = AgentToolCall(id=call_id, investigation_id=ident, payload=call)
+                    record = AgentToolCall(
+                        id=call_id, investigation_id=ident, sequence=state.tool_count, payload=call
+                    )
                     db.add(record)
                     db.commit()
                     checkpoint("tool", f"Executing {name}", {"tool": name})

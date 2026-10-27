@@ -241,8 +241,10 @@ def evaluate(engine, report_id):
                         calls = [
                             c.payload
                             for c in db.scalars(
-                                select(AgentToolCall).where(
-                                    AgentToolCall.investigation_id == submitted.id
+                                select(AgentToolCall)
+                                .where(AgentToolCall.investigation_id == submitted.id)
+                                .order_by(
+                                    AgentToolCall.sequence.asc().nulls_last(), AgentToolCall.id
                                 )
                             ).all()
                         ]

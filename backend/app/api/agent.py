@@ -89,7 +89,9 @@ def calls(ident: str, session: Browser, db: DB):
     return [
         r.payload
         for r in db.scalars(
-            select(AgentToolCall).where(AgentToolCall.investigation_id == ident)
+            select(AgentToolCall)
+            .where(AgentToolCall.investigation_id == ident)
+            .order_by(AgentToolCall.sequence.asc().nulls_last(), AgentToolCall.id)
         ).all()
     ]
 

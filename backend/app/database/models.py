@@ -147,6 +147,7 @@ class AgentStep(Base):
 
 class AgentToolCall(Base):
     __tablename__ = "agent_tool_calls"
+    sequence: Mapped[int | None] = mapped_column(Integer)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     investigation_id: Mapped[str] = mapped_column(ForeignKey("agent_investigations.id"), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
@@ -199,3 +200,35 @@ class ResearchDocumentChunk(Base):
     token_counts: Mapped[dict] = mapped_column(JSON)
     embedding: Mapped[list | None] = mapped_column(JSON)
     embedding_model: Mapped[str | None] = mapped_column(String(100))
+
+
+class OptimizationRun(Base):
+    __tablename__ = "optimization_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))
+    stage: Mapped[str] = mapped_column(String(150))
+    progress: Mapped[int] = mapped_column(Integer)
+    runner_id: Mapped[str] = mapped_column(String(36))
+    snapshot_id: Mapped[str] = mapped_column(ForeignKey("portfolio_snapshots.id"))
+    artifact_id: Mapped[str] = mapped_column(ForeignKey("risk_input_artifacts.id"))
+    input_hash: Mapped[str] = mapped_column(String(64))
+    parameters: Mapped[dict] = mapped_column(JSON)
+    dataset: Mapped[dict] = mapped_column(JSON)
+    runtime: Mapped[dict] = mapped_column(JSON)
+    result: Mapped[dict | None] = mapped_column(JSON)
+    result_hash: Mapped[str | None] = mapped_column(String(64))
+    error: Mapped[dict | None] = mapped_column(JSON)
+    reproduction_of: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class OptimizationCounterfactual(Base):
+    __tablename__ = "optimization_counterfactuals"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("optimization_runs.id"), index=True)
+    payload: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

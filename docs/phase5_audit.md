@@ -29,3 +29,7 @@ Independent checks cover finite weights/objective, sum, long-only, position/sect
 6. Execute numerical/security/API/PostgreSQL/frontend/browser/golden checks, generate an actual synthetic validation report and update all documentation.
 
 The Phase 3/4 reports retain their original provenance and scientific limitations. Synthetic in-sample optimization is not evidence of future investment benefits, and session-bound reviews are not enterprise maker-checker governance. Durable identity, distributed scheduling, retention, hardened deployment and real-provider quality remain Phase 6 or separate validation work.
+
+## Baseline ordering defect found and repaired
+
+All nine baseline browser workflows and Phase 1–3 PostgreSQL smokes passed. The PostgreSQL golden rerun `6a6341d0-ea63-40e4-b2b9-68ea36e38bd9` reported 59/60 tasks and 44/45 tool-order checks: G029's database rows returned search first although the ordered execution trace proved it ran last. SQL had no ORDER BY, so heap/update order was accidentally treated as execution order. Migration 0006 adds nullable legacy/new explicit tool-call sequencing; new calls and retrieval/evaluation use it. Old sequence values remain unknown rather than invented. This changes audit ordering, not expected tool sequences or evaluation thresholds.

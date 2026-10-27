@@ -322,3 +322,27 @@ def test_provider_failure_and_scope_mismatch_do_not_publish_answer(agent_client,
     assert result["status"] == "failed" and result["error"]["code"] == "TOOL_NOT_ALLOWED"
     calls = client.get(f"/api/v1/agent/investigations/{result['id']}/tool-calls").json()
     assert calls[0]["status"] == "denied"
+
+
+def test_tool_trace_orders_by_persisted_sequence_not_row_identifier(agent_client):
+    from uuid import uuid4
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    from app.database.models import AgentToolCall
+
+    client, engine = agent_client
+    result = investigation(client)
+    with Session(engine) as db:
+        rows = db.scalars(
+            select(AgentToolCall)
+            .where(AgentToolCall.investigation_id == result["id"])
+            .order_by(AgentToolCall.sequence.desc())
+        ).all()
+        assert [r.sequence for r in rows] == [2, 1]
+        rows[0].id = "00000000-0000-0000-0000-000000000000"
+        rows[1].id = str(uuid4())
+        db.commit()
+    calls = client.get(f"/api/v1/agent/investigations/{result['id']}/tool-calls").json()
+    assert [c["name"] for c in calls] == ["list_research_experiments", "compare_forecasting_models"]
