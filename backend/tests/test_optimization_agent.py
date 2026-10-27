@@ -45,9 +45,12 @@ def test_reduction_goal_uses_actual_solver_evidence_not_feasibility(agent_client
     ]
     saved = client.get("/api/v1/optimization/runs").json()[0]
     detail = client.get(f"/api/v1/optimization/runs/{saved['id']}").json()
-    assert (
-        facts["opt.proposed_volatility"]
-        == detail["result"]["points"][0]["solution"]["annual_volatility"]
+    point = detail["result"]["points"][0]
+    # The copied fact is exactly the Phase 2 comparison value. Independent
+    # sqrt(252)*daily_sigma and sqrt(252*daily_variance) can differ by one ULP.
+    assert facts["opt.proposed_volatility"] == point["comparison"]["proposed"]["annual_volatility"]
+    assert facts["opt.proposed_volatility"] == pytest.approx(
+        point["solution"]["annual_volatility"], rel=1e-13, abs=1e-15
     )
     assert detail["parameters"]["constraints"]["max_turnover"] == 0.1
     for future in optimization_queue.futures.values():
