@@ -1,9 +1,10 @@
 import hashlib
 from datetime import date
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 
 from app.api.routes import DB, Browser, owner
@@ -92,6 +93,25 @@ def remove(ident: str, session: Browser, db: DB):
 @router.get("/documents/{ident}/file")
 def original(ident: str, session: Browser, db: DB):
     row = owned_document(db, ident, owner(session))
+    if row.status != "ready":
+        raise AppError(
+            "DOCUMENT_NOT_READY", "Original PDF remains quarantined until extraction succeeds.", 409
+        )
+    if row.processing.get("storage_object"):
+        from app.storage.service import read_manifest
+
+        content = read_manifest(row.processing["storage_object"], row.owner)
+        if hashlib.sha256(content).hexdigest() != row.content_hash:
+            raise AppError("DOCUMENT_INTEGRITY", "Original PDF failed its content hash.", 409)
+        return Response(
+            content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(row.filename)}",
+                "Content-Security-Policy": "sandbox; default-src 'none'",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
     path = private_path(row.id)
     if not path.is_file():
         raise AppError("DOCUMENT_FILE", "Original document is unavailable.", 409)

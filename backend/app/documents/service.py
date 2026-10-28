@@ -1,9 +1,6 @@
 import hashlib
 import json
-import os
 import re
-import subprocess
-import sys
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -16,7 +13,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.agent.security import redact
-from app.core.config import ROOT, settings
+from app.core.config import settings
 from app.core.errors import AppError
 from app.database.models import (
     AgentEvidence,
@@ -97,7 +94,7 @@ def document_summary(row):
         page_count=row.page_count,
         chunk_count=row.chunk_count,
         version=row.version,
-        metadata=row.processing,
+        metadata={k: v for k, v in row.processing.items() if k != "storage_object"},
         error=row.error,
     )
 
@@ -183,11 +180,9 @@ class DocumentQueue:
             )
         try:
             ident = str(uuid4())
-            path = private_path(ident)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = path.with_suffix(".tmp")
-            temporary.write_bytes(content)
-            temporary.replace(path)
+            from app.storage.service import store
+
+            stored_object = store(db, owner, "document", content, parent_id=ident)
             config = settings()
             row = ResearchDocument(
                 id=ident,
@@ -207,6 +202,7 @@ class DocumentQueue:
                 version=f"pdf-text-1:{content_hash[:12]}",
                 processing={
                     "index_version": INDEX_VERSION,
+                    "storage_object": stored_object,
                     "chunk_chars": config.document_chunk_chars,
                     "chunk_overlap": config.document_chunk_overlap,
                     "publication_date_verification": "Uploader assertion only; not independently verified.",
@@ -240,28 +236,20 @@ class DocumentQueue:
                     return
                 row.status = "processing"
                 db.commit()
-                if hashlib.sha256(private_path(ident).read_bytes()).hexdigest() != row.content_hash:
+                from app.storage.service import read_manifest
+
+                from .parser import parse
+
+                content = (
+                    read_manifest(row.processing["storage_object"], row.owner)
+                    if row.processing.get("storage_object")
+                    else private_path(ident).read_bytes()
+                )
+                if hashlib.sha256(content).hexdigest() != row.content_hash:
                     raise AppError(
                         "DOCUMENT_INTEGRITY", "Uploaded PDF failed its content hash.", 409
                     )
-                # No shell expansion. Child receives no application secrets or network credentials.
-                result = subprocess.run(
-                    [sys.executable, "-m", "app.documents.extract", str(private_path(ident))],
-                    env={
-                        "PATH": os.environ.get("PATH", ""),
-                        "PYTHONPATH": str(ROOT / "backend"),
-                        "PYTHONIOENCODING": "utf-8",
-                    },
-                    capture_output=True,
-                    timeout=15,
-                    check=False,
-                )
-                if result.returncode != 0 or len(result.stdout) > 4_000_000:
-                    raise AppError(
-                        "PDF_EXTRACTION",
-                        "PDF could not be safely extracted; malformed, active, encrypted, oversized or image-only input may be unsupported.",
-                    )
-                parsed = json.loads(result.stdout)["result"]
+                parsed = parse(content)
                 chunks = chunks_for_pages(
                     parsed["pages"], row.processing["chunk_chars"], row.processing["chunk_overlap"]
                 )
@@ -271,6 +259,7 @@ class DocumentQueue:
                 processing = {
                     **row.processing,
                     "pdf_metadata": json.loads(redact(json.dumps(parsed["pdf_metadata"]))),
+                    "parser_isolation": parsed["isolation"],
                     "table_structure": parsed["table_structure"],
                 }
                 if processing["semantic_requested"]:
@@ -387,7 +376,15 @@ def delete_document(db, row):
             ResearchDocumentChunk.document_id == row.id, ResearchDocumentChunk.owner == row.owner
         )
     )
-    private_path(row.id).unlink(missing_ok=True)
+    if row.processing.get("storage_object"):
+        from app.database.models import PrivateArtifact
+        from app.storage.service import delete as delete_object
+
+        artifact = db.get(PrivateArtifact, row.processing["storage_object"]["object_id"])
+        if artifact:
+            delete_object(db, artifact)
+    else:
+        private_path(row.id).unlink(missing_ok=True)
     row.status = "deleted"
     row.chunk_count = 0
     row.processing = {"deleted": True, "index_version": INDEX_VERSION}

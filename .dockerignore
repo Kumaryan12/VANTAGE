@@ -13,3 +13,8 @@
 artifacts
 .pytest_cache
 .ruff_cache
+
+**/test-results
+**/playwright-report
+**/blob-report
+**/*.trace.zip

@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends libseccomp2 && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir pypdf==6.21.2 landlockpy==0.2.0 pyseccomp==0.1.2
+COPY backend/app/documents/extract.py backend/app/documents/sandbox.py /app/app/documents/
+COPY backend/scripts/parser_isolation_probe.py /app/probe.py
+ENV PYTHONPATH=/app PYTHONDONTWRITEBYTECODE=1
+USER 65532:65532
+ENTRYPOINT ["python", "/app/probe.py", "/probe/input.pdf"]

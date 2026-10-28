@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import KiteException, TokenException
 
-from app.auth.sessions import BrowserSession
+from app.auth.sessions import BrowserSession, broker_token, set_broker_token
 from app.core.config import settings
 from app.core.errors import AppError
 from app.portfolios.normalize import normalize
@@ -31,16 +31,17 @@ class KiteBroker:
         self.session = session
 
     def _read(self, method: str, **kwargs):
-        if not self.session.kite_token:
+        token = broker_token(self.session)
+        if not token:
             raise AppError(
                 "KITE_AUTH_REQUIRED", "Connect an authorized Zerodha account first.", 401
             )
         client = new_client()
-        client.set_access_token(self.session.kite_token)
+        client.set_access_token(token)
         try:
             return getattr(client, method)(**kwargs)
         except TokenException:
-            self.session.kite_token = None
+            set_broker_token(self.session, None)
             raise AppError(
                 "KITE_SESSION_EXPIRED", "Kite session expired. Reconnect your account.", 401
             ) from None
@@ -99,4 +100,4 @@ class KiteBroker:
         try:
             return self._read("invalidate_access_token")
         finally:
-            self.session.kite_token = None
+            set_broker_token(self.session, None)

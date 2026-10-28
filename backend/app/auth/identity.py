@@ -59,6 +59,29 @@ def ensure_scope(db, ident):
     return db.get(OwnershipScope, ident)
 
 
+def write_scope(db, ident):
+    ensure_scope(db, ident)
+    if db.get_bind().dialect.name == "sqlite":
+        db.execute(
+            update(OwnershipScope)
+            .where(OwnershipScope.id == ident)
+            .values(lifecycle=OwnershipScope.lifecycle)
+        )
+    row = db.scalar(
+        select(OwnershipScope)
+        .where(OwnershipScope.id == ident)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if row.lifecycle != "active":
+        raise AppError(
+            "WORKSPACE_CLOSED",
+            "This workspace is deleting/deleted; no new data can be published.",
+            409,
+        )
+    return row
+
+
 def security_event(db, action, actor=None, target=None, **safe_metadata):
     db.add(
         SecurityEvent(
@@ -201,7 +224,7 @@ def issue_session(db, user, old_token=None, scope_id=None):
         )
     scope_id = scope_id or user.preferred_scope
     scope = db.get(OwnershipScope, scope_id)
-    if not scope or scope.user_id != user.id:
+    if not scope or scope.user_id != user.id or scope.lifecycle != "active":
         raise AppError("WORKSPACE_NOT_FOUND", "Workspace not found in this account.", 404)
     token = secrets.token_urlsafe(32)
     now = int(time.time())

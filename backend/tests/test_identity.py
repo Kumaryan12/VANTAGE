@@ -314,6 +314,13 @@ def test_authenticated_kite_state_is_persisted_hashed_and_single_use(agent_clien
 
     client, engine = agent_client
     me = account(client)
+    import json
+
+    from cryptography.fernet import Fernet
+
+    monkeypatch.setattr(
+        settings(), "master_keys", json.dumps({"v1": Fernet.generate_key().decode()})
+    )
     monkeypatch.setattr(settings(), "kite_api_key", "fixture-key")
     monkeypatch.setattr(settings(), "kite_api_secret", "fixture-secret")
 

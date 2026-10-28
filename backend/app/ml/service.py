@@ -261,7 +261,7 @@ class ResearchQueue:
                     artifact.payload,
                     ResearchRequest.model_validate(exp.parameters),
                     ids,
-                    writer(experiment_id),
+                    writer(experiment_id, exp.owner, db),
                     progress,
                     experiment_id,
                 )
@@ -331,6 +331,17 @@ class ResearchQueue:
                 exp.progress = 100
                 exp.stage = "Completed with matched out-of-sample evidence"
                 exp.finished_at = datetime.now(UTC)
+                from app.storage.service import finalize
+
+                finalize(
+                    db,
+                    exp.id,
+                    [
+                        file
+                        for model in result["models"].values()
+                        for file in model["artifact_files"]
+                    ],
+                )
                 db.commit()
         except Exception as error:
             logger.error(
@@ -436,7 +447,7 @@ def explain(db, model, target=None):
     fit = next(f for f in model.payload["refits"] if f["id"] == point["training_window_id"])
     import lightgbm as lgb
 
-    booster = lgb.Booster(model_str=read_artifact(fit["artifact"]).decode())
+    booster = lgb.Booster(model_str=read_artifact(fit["artifact"], model.owner).decode())
     values = apply_imputer(pd.DataFrame([point["feature_values"]]), fit["imputer"])
     raw = float(booster.predict(values, num_threads=1)[0]) / 10000
     contributions = booster.predict(values, pred_contrib=True, num_threads=1)[0] / 10000
@@ -509,7 +520,7 @@ def set_governance(db, model, owner, body):
             "Champion review requires a complete model and at least 100 common evaluation observations; this minimum does not establish superiority.",
         )
     for file in model.payload["artifact_files"]:
-        read_artifact(file)
+        read_artifact(file, model.owner)
     now = datetime.now(UTC)
     event = {
         "from": model.role,
@@ -555,4 +566,4 @@ def set_governance(db, model, owner, body):
 def download_model(model):
     if not model.payload["artifact_files"]:
         raise AppError("ARTIFACT_UNAVAILABLE", "This model has no successful fitted artifact.", 409)
-    return artifact_zip(model.payload["artifact_files"])
+    return artifact_zip(model.payload["artifact_files"], model.owner)

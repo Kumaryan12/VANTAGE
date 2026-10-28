@@ -38,7 +38,7 @@ def runtime_versions():
     }
 
 
-def writer(experiment_id):
+def writer(experiment_id, owner=None, db=None):
     root = Path(settings().model_artifact_dir).resolve()
 
     def write(kind, name, content):
@@ -47,6 +47,12 @@ def writer(experiment_id):
         data = content.encode("utf-8")
         if len(data) > 10 * 1024 * 1024:
             raise AppError("ARTIFACT_SIZE", "Individual model artifact exceeds 10 MB.")
+        if owner and db is not None:
+            from app.storage.service import store
+
+            result = store(db, owner, "model", data, parent_id=experiment_id, published=False)
+            result["name"] = name
+            return result
         path = root / experiment_id / kind / name
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")
@@ -61,7 +67,11 @@ def writer(experiment_id):
     return write
 
 
-def read_artifact(manifest):
+def read_artifact(manifest, owner=None):
+    if manifest.get("storage_key"):
+        from app.storage.service import read_manifest
+
+        return read_manifest(manifest, owner)
     root = Path(settings().model_artifact_dir).resolve()
     path = (root / manifest["path"]).resolve()
     if not path.is_relative_to(root) or not path.is_file():
@@ -72,9 +82,11 @@ def read_artifact(manifest):
     return data
 
 
-def artifact_zip(files):
+def artifact_zip(files, owner=None):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as output:
         for manifest in files:
-            output.writestr(Path(manifest["path"]).name, read_artifact(manifest))
+            output.writestr(
+                manifest.get("name") or Path(manifest["path"]).name, read_artifact(manifest, owner)
+            )
     return buffer.getvalue()

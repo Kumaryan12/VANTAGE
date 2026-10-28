@@ -24,13 +24,13 @@ class BrowserSession:
     user_id: str | None = None
     owner_id: str | None = None
     auth_session_id: str | None = None
+    database: Session | None = None
 
 
 class SessionStore:
     def __init__(self):
         self.items: dict[str, BrowserSession] = {}
         self.lock = threading.RLock()
-        self.auth_brokers: dict[str, BrowserSession] = {}
 
     def get(self, request: Request, response: Response) -> BrowserSession:
         with self.lock:
@@ -82,14 +82,22 @@ def browser_session(
     token = request.cookies.get(AUTH_COOKIE)
     if token:
         user, row = authenticate(db, token)
-        with store.lock:
-            session = store.auth_brokers.setdefault(
-                row.id, BrowserSession(id=row.id, expires=row.expires)
+        from app.database.models import OwnershipScope
+
+        if db.get(OwnershipScope, row.scope_id).lifecycle != "active":
+            raise AppError(
+                "WORKSPACE_CLOSED",
+                "This workspace is unavailable; select another owned workspace in account settings.",
+                409,
             )
-            session.user_id = user.id
-            session.owner_id = row.scope_id
-            session.auth_session_id = row.id
-        return session
+        return BrowserSession(
+            id=row.id,
+            expires=row.expires,
+            user_id=user.id,
+            owner_id=row.scope_id,
+            auth_session_id=row.id,
+            database=db,
+        )
     if settings().auth_required:
         raise AppError("AUTHENTICATION_REQUIRED", "Sign in to a durable research account.", 401)
     session = store.get(request, response)
@@ -119,3 +127,31 @@ def enforce_required_auth(request: Request, db: Session = Depends(get_db)):
         from .identity import AUTH_COOKIE, authenticate
 
         authenticate(db, request.cookies.get(AUTH_COOKIE))
+
+
+def broker_token(session):
+    if session.user_id:
+        from app.security.vault import get
+
+        return get(session.database, session.owner_id, actor=session.user_id)
+    return session.kite_token
+
+
+def set_broker_token(session, value):
+    if session.user_id:
+        from app.security.vault import put, revoke
+
+        if value:
+            put(session.database, session.owner_id, value, actor=session.user_id)
+        else:
+            revoke(session.database, session.owner_id, actor=session.user_id)
+    else:
+        session.kite_token = value
+
+
+def broker_connected(session):
+    if session.user_id:
+        from app.security.vault import available
+
+        return available(session.database, session.owner_id)
+    return bool(session.kite_token)

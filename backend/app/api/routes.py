@@ -13,7 +13,13 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
-from app.auth.sessions import BrowserSession, browser_session, store
+from app.auth.sessions import (
+    BrowserSession,
+    broker_connected,
+    browser_session,
+    set_broker_token,
+    store,
+)
 from app.brokers.demo import DemoBroker
 from app.brokers.kite import KiteBroker, configured, new_client
 from app.core.config import settings
@@ -57,6 +63,10 @@ def health(request: Request, db: DB):
         db.execute(select(OptimizationRun.id).limit(1))
         db.execute(select(GovernanceModel.id).limit(1))
         db.execute(select(AuthSession.id).limit(1))
+        from app.database.models import PrivateArtifact, ProviderCredential
+
+        db.execute(select(PrivateArtifact.id).limit(1))
+        db.execute(select(ProviderCredential.id).limit(1))
     except Exception:
         raise AppError(
             "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503
@@ -68,7 +78,7 @@ def health(request: Request, db: DB):
 def session_status(session: Browser):
     return {
         "kite_configured": configured(),
-        "kite_connected": bool(session.kite_token),
+        "kite_connected": broker_connected(session),
         "trading_enabled": False,
     }
 
@@ -266,7 +276,7 @@ def kite_callback(
         store.consume_state(session, state)
     try:
         data = new_client().generate_session(request_token, api_secret=settings().kite_api_secret)
-        session.kite_token = data["access_token"]
+        set_broker_token(session, data["access_token"])
     except (KiteException, OSError, KeyError, ValueError):
         raise AppError(
             "KITE_AUTH_FAILED", "Kite authorization failed. Start a fresh login.", 401
@@ -277,7 +287,7 @@ def kite_callback(
 @router.post("/auth/kite/logout")
 def kite_logout(session: Browser):
     revoked = True
-    if session.kite_token:
+    if broker_connected(session):
         try:
             KiteBroker(session).logout()
         except AppError:

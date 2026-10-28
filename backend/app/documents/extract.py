@@ -1,6 +1,8 @@
 """Isolated parser entry point. Input is a server-generated private path, never a command."""
 
+import hashlib
 import json
+import os
 import sys
 
 MAX_PAGES = 100
@@ -57,9 +59,20 @@ if __name__ == "__main__":
         import resource
 
         resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (4_000_000, 4_000_000))
         if sys.platform.startswith("linux"):
             resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024, 512 * 1024 * 1024))
-        print(json.dumps({"result": extract(sys.argv[1])}, ensure_ascii=True))
+        # Import trusted parser dependencies before applying irreversible kernel restrictions.
+        from pathlib import Path
+
+        from app.documents.sandbox import confine
+
+        input_hash = hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()
+        isolation = confine(sys.argv[1], required=os.environ.get("VANTAGE_SANDBOX_REQUIRED") == "1")
+        result = extract(sys.argv[1])
+        result.update(input_hash=input_hash, isolation=isolation)
+        print(json.dumps({"result": result}, ensure_ascii=True))
     except Exception:
         # Never return raw parser errors/embedded text to logs or the API.
         print(

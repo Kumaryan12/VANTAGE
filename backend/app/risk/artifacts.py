@@ -42,9 +42,9 @@ def payload_frame(payload: dict) -> tuple[pd.DataFrame, Provenance]:
 
 
 def persist_inputs(db: Session, portfolio: Portfolio, payload: dict, owner: str):
-    from app.auth.identity import ensure_scope
+    from app.auth.identity import write_scope
 
-    ensure_scope(db, owner)
+    write_scope(db, owner)
     snapshot_payload = portfolio.model_dump(mode="json")
     # Exact stored snapshot, including retrieval metadata, is part of replay identity.
     snapshot_hash = digest(snapshot_payload)
@@ -171,6 +171,9 @@ def metadata(
 
 
 def persist_run(db: Session, result, owner: str):
+    from app.auth.identity import write_scope
+
+    write_scope(db, owner)
     db.add(
         RiskRun(
             id=result.run_id,

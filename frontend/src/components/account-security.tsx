@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { AccountStorage } from "./account-storage";
 import { ErrorNotice } from "./error-notice";
 export type Identity = {
   authenticated: boolean;
@@ -215,6 +216,7 @@ export function AccountSecurity() {
       </section>
       {authenticated && (
         <>
+          <AccountStorage />
           <section className="panel">
             <div className="panel-heading">
               <h2>Private research workspaces</h2>

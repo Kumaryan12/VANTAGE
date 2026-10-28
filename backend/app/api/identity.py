@@ -179,7 +179,11 @@ def workspaces(request: Request, db: DB):
     user, _ = principal(request, db)
     return [
         {"id": r.id, "name": r.name, "kind": r.kind}
-        for r in db.scalars(select(OwnershipScope).where(OwnershipScope.user_id == user.id)).all()
+        for r in db.scalars(
+            select(OwnershipScope).where(
+                OwnershipScope.user_id == user.id, OwnershipScope.lifecycle == "active"
+            )
+        ).all()
     ]
 
 
@@ -187,7 +191,7 @@ def workspaces(request: Request, db: DB):
 def choose_workspace(body: WorkspaceSelection, request: Request, response: Response, db: DB):
     user, old = principal(request, db)
     scope = db.get(OwnershipScope, body.scope_id)
-    if scope is None or scope.user_id != user.id:
+    if scope is None or scope.user_id != user.id or scope.lifecycle != "active":
         raise AppError("WORKSPACE_NOT_FOUND", "Workspace not found in this account.", 404)
     user.preferred_scope = scope.id
     token, row = service.issue_session(db, user, request.cookies.get(service.AUTH_COOKIE), scope.id)
@@ -311,3 +315,38 @@ def legacy_status(request: Request, db: DB):
         "proof_available": available,
         "limitation": "Only the still-live original session can prove ownership. Lost or expired sessions have no automatic recovery.",
     }
+
+
+@router.get("/credentials")
+def credential_status(session: Browser, db: DB):
+    from app.auth.identity import require_user
+    from app.database.models import ProviderCredential
+
+    require_user(session)
+    rows = db.scalars(
+        select(ProviderCredential).where(ProviderCredential.owner == session.owner_id)
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "provider": r.provider,
+            "available": not r.revoked and r.expires > time.time(),
+            "expires": r.expires,
+            "key_version": r.key_id,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/credentials/{ident}/revoke")
+def revoke_credential(ident: str, session: Browser, db: DB):
+    from app.auth.identity import require_user
+    from app.database.models import ProviderCredential
+    from app.security.vault import revoke
+
+    require_user(session)
+    row = db.get(ProviderCredential, ident)
+    if row is None or row.owner != session.owner_id:
+        raise AppError("CREDENTIAL_NOT_FOUND", "Credential not found in this workspace.", 404)
+    revoke(db, row.owner, row.provider, actor=session.user_id)
+    return {"revoked": True, "remote_broker_revocation_confirmed": False}

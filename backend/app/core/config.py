@@ -9,10 +9,23 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=ROOT / ".env", extra="ignore", hide_input_in_errors=True
+    )
     database_url: str = f"sqlite:///{ROOT / 'vantage.db'}"
     frontend_url: str = "http://localhost:3000"
     cookie_secure: bool = False
+    master_keys: str = Field("", repr=False)
+    master_key_file: str = ""
+    master_key_active: str = "v1"
+    kite_token_lifetime_hours: int = Field(8, ge=1, le=24)
+    private_storage_dir: str = str(ROOT / "artifacts/private")
+    storage_backend: str = "local"
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""
+    s3_region: str = "us-east-1"
+    storage_quota_mb: int = Field(250, ge=10, le=10000)
+    document_sandbox_required: bool = False
     auth_required: bool = False
     registration_enabled: bool = True
     auth_session_hours: int = Field(12, ge=1, le=168)
@@ -33,7 +46,7 @@ class Settings(BaseSettings):
     document_chunk_chars: int = Field(1800, ge=400, le=3000)
     document_chunk_overlap: int = Field(180, ge=0, le=499)
 
-    @field_validator("model_artifact_dir", "document_storage_dir")
+    @field_validator("model_artifact_dir", "document_storage_dir", "private_storage_dir")
     @classmethod
     def resolve_artifact_dir(cls, value: str) -> str:
         path = Path(value).expanduser()

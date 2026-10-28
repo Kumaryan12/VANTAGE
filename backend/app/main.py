@@ -15,6 +15,7 @@ from app.api.identity import router as identity_router
 from app.api.ml import router as ml_router
 from app.api.optimization import router as optimization_router
 from app.api.routes import router
+from app.api.storage import router as storage_router
 from app.auth.sessions import enforce_required_auth
 from app.core.config import settings
 from app.core.errors import AppError
@@ -29,6 +30,7 @@ app = FastAPI(
 )
 app.include_router(router)
 app.include_router(identity_router)
+app.include_router(storage_router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
 app.include_router(optimization_router)

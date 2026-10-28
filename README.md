@@ -2,7 +2,7 @@
 
 **AI-Powered Portfolio Risk & Quantitative Research Platform**
 
-VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–4 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible forecasting research and evidence-grounded financial investigations; Phase 5 adds constrained decision support; Phase 6 production hardening remains planned. Financial results come from tested Python calculations, never an LLM.
+VANTAGE is a read-only portfolio analytics project for rigorous quantitative engineering and applied AI research. Phases 1–4 provide portfolio analytics, advanced quantitative risk, stress testing, reproducible forecasting research and evidence-grounded financial investigations; Phase 5 adds constrained decision support; Phase 6 production engineering is in progress. Financial results come from tested Python calculations, never an LLM.
 
 ## Implemented scope
 
@@ -16,7 +16,7 @@ VANTAGE is a read-only portfolio analytics project for rigorous quantitative eng
 - Next.js dark dashboard with working portfolio/source selection, confidence/window controls, risk/sector charts, holdings search/sort, imports, context retrieval, visible errors, and JSON risk-run export.
 - Local startup, PostgreSQL Compose deployment configuration, numerical/API/security tests, browser workflow tests, and GitHub Actions.
 
-**Planned:** Phase 6 production hardening. See [roadmap](docs/roadmap.md).
+**In progress:** Phase 6 production engineering. See [roadmap](docs/roadmap.md).
 
 ## Phase 2 — advanced quantitative risk
 
@@ -107,7 +107,9 @@ Install current locked dependencies (CVXPY/CLARABEL), apply migrations through *
 
 ## Phase 6 — production engineering in progress
 
-Stage A adds **Account & Security**, Argon2id local accounts, durable revocable sessions, private ownership workspaces, proof-bound legacy adoption and model-scoped independent reviewers. Apply migration **0009** after installing the current locked dependencies. Public registration grants USER only; trusted administrators provision privileged roles. See [authentication and recovery](docs/authentication.md), [authorization](docs/authorization.md), and [the Phase 6 audit](docs/phase6_audit.md).
+Stage A adds **Account & Security**, Argon2id local accounts, durable revocable sessions, private ownership workspaces, proof-bound legacy adoption and model-scoped independent reviewers. Apply migrations through **0010** after installing the current locked dependencies. Public registration grants USER only; trusted administrators provision privileged roles. See [authentication and recovery](docs/authentication.md), [authorization](docs/authorization.md), and [the Phase 6 audit](docs/phase6_audit.md).
+
+Stage B adds encrypted persistent broker authorization for authenticated accounts, private local/S3 object adapters, owner-authorized workspace deletion, dry-run retention maintenance and a Linux Landlock/seccomp PDF parser. See [secret management](docs/secret_management.md) and [storage/retention](docs/storage_and_retention.md). S3 deployment is not externally verified; macOS development has resource limits without Linux kernel isolation. Durable workers, coordinated disaster recovery and the full production deployment are subsequent gates, not completed claims.
 
 The first durable-identity workflow has been executed on disposable PostgreSQL: create/login, save risk and optimization, logout, stop/restart the backend, re-login, retrieve identical records and reproduce inputs, then deny a second user. Reproduce with `DATABASE_URL=… backend/.venv/bin/python backend/scripts/identity_smoke.py` after migration. It creates explicitly synthetic test users/runs.
 

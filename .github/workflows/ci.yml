@@ -29,6 +29,12 @@ jobs:
       - run: ruff check backend data/sample/generate.py
       - run: ruff format --check backend data/sample/generate.py
       - run: pytest -c backend/pyproject.toml backend/tests -q
+      - name: Non-root Linux PDF confinement probe
+        run: |
+          mkdir -p artifacts/phase6/parser-probe
+          PYTHONPATH=backend/tests python -c 'from document_fixtures import pdf_bytes, LIQUIDITY; from pathlib import Path; p=Path("artifacts/phase6/parser-probe"); (p/"input.pdf").write_bytes(pdf_bytes([LIQUIDITY])); (p/"other.pdf").write_bytes(b"SYNTHETIC foreign source"); (p/"credential-canary").write_text("SYNTHETIC canary")'
+          docker build -f infra/Dockerfile.parser-test -t vantage-parser-test:ci .
+          docker run --rm --read-only --cap-drop=ALL --security-opt no-new-privileges=true --tmpfs /tmp:rw,noexec,nosuid,size=16m -v "$PWD/artifacts/phase6/parser-probe:/probe:ro" vantage-parser-test:ci
       - run: alembic -c backend/alembic.ini upgrade head
       - name: Durable identity restart and cross-user recovery slice
         run: python backend/scripts/identity_smoke.py

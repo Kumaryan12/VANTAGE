@@ -93,6 +93,9 @@ def risk_for_portfolio(
             sort_keys=True,
         ).encode()
     ).hexdigest()
+    from app.auth.identity import write_scope
+
+    write_scope(db, owner)
     db.add(
         RiskRun(
             id=run_id,

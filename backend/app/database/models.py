@@ -276,6 +276,7 @@ class OwnershipScope(Base):
     kind: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lifecycle: Mapped[str] = mapped_column(String(20), default="active", server_default="active")
 
 
 class AuthSession(Base):
@@ -335,3 +336,44 @@ class ReviewAssignment(Base):
     assigned_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     active: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class ProviderCredential(Base):
+    __tablename__ = "provider_credentials"
+    __table_args__ = (UniqueConstraint("owner", "provider"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(40))
+    ciphertext: Mapped[str] = mapped_column(Text)
+    key_id: Mapped[str] = mapped_column(String(40))
+    revision: Mapped[int] = mapped_column(Integer)
+    expires: Mapped[int] = mapped_column(Integer)
+    revoked: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class PrivateArtifact(Base):
+    __tablename__ = "private_artifacts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    backend: Mapped[str] = mapped_column(String(16))
+    storage_key: Mapped[str] = mapped_column(String(150), unique=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    version: Mapped[str] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    parent_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DeletionRequest(Base):
+    __tablename__ = "deletion_requests"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    status: Mapped[str] = mapped_column(String(24))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[dict] = mapped_column(JSON)

@@ -8,6 +8,8 @@ argon2-cffi-bindings==26.1.0
 attrs==26.1.0
 autobahn==19.11.2
 Automat==25.4.16
+boto3==1.43.120
+botocore==1.43.120
 certifi==2026.10.23
 cffi==2.1.1
 charset-normalizer==3.5.2
@@ -31,8 +33,10 @@ Incremental==24.11.0
 iniconfig==2.3.1
 interface_meta==2.0.1
 Jinja2==3.1.6
+jmespath==1.1.0
 joblib==1.6.0
 kiteconnect==5.2.2
+landlockpy==0.2.0
 lightgbm==4.7.0
 Mako==1.4.3
 MarkupSafe==3.0.4
@@ -55,13 +59,15 @@ pydantic_core==2.50.1
 Pygments==2.21.0
 pyOpenSSL==26.4.0
 pypdf==6.21.2
+pyseccomp==0.1.2
 pytest==9.1.1
-python-dateutil==3.0.0
+python-dateutil==2.9.0.post0
 python-dotenv==1.2.4
 python-multipart==0.0.32
 qdldl==0.1.9.post1
 requests==2.34.2
 ruff==0.17.2
+s3transfer==0.19.3
 scipy==1.18.1
 scs==3.3.1
 service-identity==26.1.0

@@ -131,7 +131,7 @@ def source_evidence(db, owner, source_type, source_id):
     artifacts = True
     try:
         for file in model.payload["artifact_files"]:
-            read_artifact(file)
+            read_artifact(file, model.owner)
     except AppError:
         artifacts = False
     complete = (
