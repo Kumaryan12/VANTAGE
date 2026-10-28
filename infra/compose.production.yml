@@ -1,0 +1,254 @@
+# Isolated production-style local deployment. Only TLS proxy is bound to loopback.
+x-app: &app
+  image: vantage-backend:${BUILD_COMMIT:-development}
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+    args:
+      BUILD_COMMIT: ${BUILD_COMMIT:-development}
+  user: "10001:10001"
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=128m,uid=10001,gid=10001,mode=0700"]
+  environment: &app-env
+    ENVIRONMENT: production
+    AUTH_REQUIRED: "true"
+    REGISTRATION_ENABLED: "false"
+    EXPOSE_API_DOCS: "false"
+    COOKIE_SECURE: "true"
+    FRONTEND_URL: https://localhost:8443
+    DATABASE_URL_FILE: /run/secrets/database_app_url
+    REDIS_URL_FILE: /run/secrets/redis_url
+    MASTER_KEY_FILE: /run/secrets/master_keys
+    MASTER_KEY_ACTIVE: v1
+    DOCUMENT_SANDBOX_REQUIRED: "true"
+    JOB_BACKEND: celery
+    MODEL_ARTIFACT_DIR: /app/artifacts/models
+    DOCUMENT_STORAGE_DIR: /app/artifacts/documents
+    PRIVATE_STORAGE_DIR: /app/artifacts/private
+    OMP_NUM_THREADS: "1"
+    OPENBLAS_NUM_THREADS: "1"
+    BUILD_COMMIT: ${BUILD_COMMIT:-development}
+  volumes:
+    - model_artifacts:/app/artifacts/models
+    - research_documents:/app/artifacts/documents
+    - private_objects:/app/artifacts/private
+  secrets: [database_app_url, redis_url, master_keys]
+  networks: [data, outbound]
+  restart: unless-stopped
+  stop_grace_period: 30s
+  logging: &bounded-logs
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    user: "70:70"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      POSTGRES_DB: vantage
+      POSTGRES_USER: vantage_migration
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_admin_password
+    secrets: [db_admin_password, db_app_password]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/10-runtime-role.sh:/docker-entrypoint-initdb.d/10-runtime-role.sh:ro
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m", "/var/run/postgresql:rw,nosuid,size=16m,uid=70,gid=70"]
+    command: ["postgres", "-c", "log_statement=none", "-c", "log_min_error_statement=panic", "-c", "log_error_verbosity=terse"]
+    networks: [data]
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vantage_migration -d vantage"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *bounded-logs
+  redis:
+    image: redis:8.2-alpine@sha256:35bf3d49a07b693d8defb4e4fc9ef8c663f71c2993f181eba99c7b72966c1f9b
+    user: "999:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--aclfile", "/run/secrets/redis_acl", "--maxmemory", "96mb", "--maxmemory-policy", "noeviction"]
+    secrets: [redis_acl, redis_password]
+    volumes: ["redis_data:/data"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+    networks: [data]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 32
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/redis_password) redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *bounded-logs
+  migrate:
+    <<: *app
+    environment:
+      <<: *app-env
+      DATABASE_URL_FILE: /run/secrets/database_migration_url
+    secrets: [database_migration_url, redis_url, master_keys]
+    command: ["python", "-m", "app.operations.migrate"]
+    restart: "no"
+    mem_limit: 512m
+    cpus: 1.0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  backend:
+    <<: *app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--proxy-headers", "--forwarded-allow-ips", "172.29.123.10", "--limit-concurrency", "64"]
+    networks: [data, edge, outbound]
+    mem_limit: 768m
+    cpus: 1.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+  worker-quant:
+    <<: *app
+    command: ["celery", "-A", "app.jobs.celery_app:app", "worker", "--pool=prefork", "--concurrency=2", "--loglevel=WARNING", "-Q", "research,optimization,document,risk,report", "--hostname", "quant@%h", "--without-gossip", "--without-mingle"]
+    mem_limit: 2g
+    cpus: 2.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: &worker-health
+      test: ["CMD", "python", "-m", "app.operations.heartbeat", "check"]
+      interval: 10s
+      timeout: 3s
+      start_period: 15s
+      retries: 12
+  worker-agent:
+    <<: *app
+    command: ["celery", "-A", "app.jobs.celery_app:app", "worker", "--pool=prefork", "--concurrency=1", "--loglevel=WARNING", "-Q", "agent", "--hostname", "agent@%h", "--without-gossip", "--without-mingle"]
+    mem_limit: 1g
+    cpus: 1.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *worker-health
+  worker-evaluation:
+    <<: *app
+    command: ["celery", "-A", "app.jobs.celery_app:app", "worker", "--pool=prefork", "--concurrency=1", "--loglevel=WARNING", "-Q", "evaluation", "--hostname", "evaluation@%h", "--without-gossip", "--without-mingle"]
+    mem_limit: 1g
+    cpus: 1.0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *worker-health
+  dispatcher:
+    <<: *app
+    command: ["python", "-m", "app.jobs.dispatcher"]
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck: *worker-health
+  frontend:
+    image: vantage-frontend:${BUILD_COMMIT:-development}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        BACKEND_URL: http://backend:8000
+        BUILD_COMMIT: ${BUILD_COMMIT:-development}
+    user: "1000:1000"
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m,uid=1000,gid=1000", "/app/.next/cache:rw,noexec,nosuid,size=32m,uid=1000,gid=1000"]
+    networks: [edge]
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    logging: *bounded-logs
+  proxy:
+    image: vantage-proxy:${BUILD_COMMIT:-development}
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.proxy
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports: ["127.0.0.1:8443:8443"]
+    volumes: ["proxy_data:/data", "proxy_config:/config"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,uid=10001,gid=10001"]
+    environment:
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+    networks:
+      edge:
+        ipv4_address: 172.29.123.10
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    logging: *bounded-logs
+
+networks:
+  data:
+    internal: true
+  outbound: {}
+  edge:
+    ipam:
+      config:
+        - subnet: 172.29.123.0/24
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  model_artifacts: {}
+  research_documents: {}
+  private_objects: {}
+  proxy_data: {}
+  proxy_config: {}
+secrets:
+  db_admin_password:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/db_admin_password
+  db_app_password:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/db_app_password
+  database_app_url:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/database_app_url
+  database_migration_url:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/database_migration_url
+  redis_url:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/redis_url
+  redis_password:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/redis_password
+  redis_acl:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/redis_acl
+  master_keys:
+    file: ${VANTAGE_SECRET_DIR:?Set an absolute private secret directory}/master_keys

@@ -1,0 +1,39 @@
+{
+	admin off
+	auto_https disable_redirects
+	log {
+		format filter {
+			wrap json
+			fields {
+				request delete
+				msg delete
+				error delete
+				upstream delete
+			}
+		}
+	}
+}
+https://localhost:8443 {
+	tls internal
+	request_body {
+		max_size 6MB
+	}
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy backend:8000 {
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 30s
+			}
+		}
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

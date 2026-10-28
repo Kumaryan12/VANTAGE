@@ -1,5 +1,5 @@
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import worker_process_init, worker_ready
 
 from app.core.config import settings
 
@@ -38,3 +38,10 @@ def dispose_inherited_connections(**kwargs):
     from app.database.session import engine
 
     engine.dispose(close=False)
+
+
+@worker_ready.connect
+def ready_heartbeat(**kwargs):
+    from app.operations.heartbeat import start
+
+    start("worker")

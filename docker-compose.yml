@@ -12,6 +12,16 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://vantage:${POSTGRES_PASSWORD:-vantage_local_only}@db:5432/vantage
+    command: ["python", "-m", "app.operations.migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
   backend:
     build:
       context: .
@@ -38,6 +48,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s

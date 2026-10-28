@@ -112,6 +112,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
+    if not args.once:
+        from app.operations.heartbeat import start
+
+        start("dispatcher")
     from app.database.session import engine
 
     while True:

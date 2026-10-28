@@ -25,8 +25,8 @@ app = FastAPI(
     title="VANTAGE",
     dependencies=[Depends(enforce_required_auth)],
     version="0.5.0",
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if settings().expose_api_docs else None,
+    openapi_url="/api/openapi.json" if settings().expose_api_docs else None,
     redoc_url=None,
 )
 app.include_router(router)
@@ -59,19 +59,19 @@ def error_response(request: Request, code: str, message: str, status: int, detai
 @app.middleware("http")
 async def request_boundary(request: Request, call_next):
     request.state.request_id = str(uuid4())
-    if request.method == "POST" and request.url.path in {
-        "/api/v1/research/documents",
-        "/api/history/import",
-    }:
-        # Bound the complete multipart stream before FastAPI can spool an oversized file.
-        upload_limit = 6 * 1024 * 1024
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        # Bound the complete stream before multipart spooling or JSON parsing.
+        multipart = request.url.path in {"/api/v1/research/documents", "/api/history/import"}
+        upload_limit = (6 if multipart else 1) * 1024 * 1024
         body = bytearray()
         async for chunk in request.stream():
             if len(body) + len(chunk) > upload_limit:
                 return error_response(
                     request,
-                    "DOCUMENT_SIZE",
-                    "Multipart upload exceeds 6 MB including metadata.",
+                    "DOCUMENT_SIZE" if multipart else "REQUEST_SIZE",
+                    "Multipart upload exceeds 6 MB including metadata."
+                    if multipart
+                    else "Request exceeds the 1 MB structured-input budget.",
                     413,
                 )
             body.extend(chunk)

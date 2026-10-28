@@ -1,7 +1,7 @@
 import secrets
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from fastapi import Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -18,13 +18,13 @@ TTL = 12 * 60 * 60
 class BrowserSession:
     id: str
     expires: float
-    kite_token: str | None = None
-    state: str | None = None
+    kite_token: str | None = field(default=None, repr=False)
+    state: str | None = field(default=None, repr=False)
     state_expires: float = 0
     user_id: str | None = None
     owner_id: str | None = None
     auth_session_id: str | None = None
-    database: Session | None = None
+    database: Session | None = field(default=None, repr=False)
 
 
 class SessionStore:

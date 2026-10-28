@@ -1,0 +1,37 @@
+# External issuance is NOT executed. An authorized operator must configure domain/DNS,
+# reachable challenge ports or approved certificates and review the network exposure.
+{
+	admin off
+	email {$ACME_EMAIL}
+	log {
+		format filter {
+			wrap json
+			fields {
+				request delete
+				msg delete
+				error delete
+				upstream delete
+			}
+		}
+	}
+}
+{$VANTAGE_HOST}:8443 {
+	tls {$TLS_CERT_FILE} {$TLS_KEY_FILE}
+	request_body {
+		max_size 6MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+	@api path /api /api/*
+	handle @api {
+		reverse_proxy backend:8000
+	}
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

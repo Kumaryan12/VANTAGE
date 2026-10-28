@@ -86,3 +86,40 @@ jobs:
         env:
           VANTAGE_PYTHON: python
           PLAYWRIGHT_CHANNEL: chrome
+
+  containers:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BUILD_COMMIT: ${{ github.sha }}
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install only the locked orchestration-script dependencies
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, sys
+          names = ("httpx==", "cryptography==", "pypdf==")
+          requirements = [s for s in pathlib.Path("backend/requirements.runtime.lock").read_text().splitlines() if s.startswith(names)]
+          subprocess.run([sys.executable, "-m", "pip", "install", *requirements], check=True)
+          PY
+      - name: Provision isolated ephemeral local secrets
+        run: |
+          python infra/provision_local.py --container-readable --output-dir "$RUNNER_TEMP/vantage-secrets"
+          echo "VANTAGE_SECRET_DIR=$RUNNER_TEMP/vantage-secrets" >> "$GITHUB_ENV"
+      - name: Build the complete pinned production images
+        run: docker compose -p vantage-phase6 -f infra/compose.production.yml build backend frontend proxy
+      - name: Start private services, one-shot migration and local TLS
+        run: |
+          docker compose -p vantage-phase6 -f infra/compose.production.yml up -d --wait --wait-timeout 180
+          mkdir -p artifacts/phase6
+          docker compose -p vantage-phase6 -f infra/compose.production.yml cp proxy:/data/caddy/pki/authorities/local/root.crt artifacts/phase6/local-root.crt
+      - name: HTTPS research journey, complete service restart and reproduction
+        run: python backend/scripts/deployment_smoke.py --ca-file artifacts/phase6/local-root.crt
+      - name: Remove the disposable stack
+        if: always()
+        run: docker compose -p vantage-phase6 -f infra/compose.production.yml down -v --remove-orphans

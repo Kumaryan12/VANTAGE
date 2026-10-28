@@ -5,13 +5,13 @@ import json
 import os
 import sys
 
+from pypdf import PdfReader
+
 MAX_PAGES = 100
 MAX_TEXT = 500_000
 
 
 def extract(path):
-    from pypdf import PdfReader
-
     reader = PdfReader(path, strict=True)
     if reader.is_encrypted:
         raise ValueError("Encrypted PDFs are unsupported.")
