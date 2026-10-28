@@ -127,7 +127,12 @@ def artifact(model_id: str, session: Browser, db: DB):
 
 @router.post("/models/{model_id}/governance", response_model=ModelDetail)
 def governance(model_id: str, body: GovernanceRequest, session: Browser, db: DB):
-    return set_governance(db, owned_model(db, model_id, owner(session)), owner(session), body)
+    model = owned_model(db, model_id, owner(session))
+    if body.role == "champion":
+        from app.governance.authorization import require_champion_review
+
+        require_champion_review(db, session, model)
+    return set_governance(db, model, owner(session), body)
 
 
 @router.get("/comparison", response_model=Comparison)

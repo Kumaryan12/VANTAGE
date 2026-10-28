@@ -3,10 +3,12 @@ import threading
 import time
 from dataclasses import dataclass
 
-from fastapi import Request, Response
+from fastapi import Depends, Request, Response
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import AppError
+from app.database.session import get_db
 
 COOKIE = "vantage_session"
 TTL = 12 * 60 * 60
@@ -19,12 +21,16 @@ class BrowserSession:
     kite_token: str | None = None
     state: str | None = None
     state_expires: float = 0
+    user_id: str | None = None
+    owner_id: str | None = None
+    auth_session_id: str | None = None
 
 
 class SessionStore:
     def __init__(self):
         self.items: dict[str, BrowserSession] = {}
         self.lock = threading.RLock()
+        self.auth_brokers: dict[str, BrowserSession] = {}
 
     def get(self, request: Request, response: Response) -> BrowserSession:
         with self.lock:
@@ -68,5 +74,48 @@ class SessionStore:
 store = SessionStore()
 
 
-def browser_session(request: Request, response: Response) -> BrowserSession:
-    return store.get(request, response)
+def browser_session(
+    request: Request, response: Response, db: Session = Depends(get_db)
+) -> BrowserSession:
+    from .identity import AUTH_COOKIE, authenticate, ensure_scope, token_hash
+
+    token = request.cookies.get(AUTH_COOKIE)
+    if token:
+        user, row = authenticate(db, token)
+        with store.lock:
+            session = store.auth_brokers.setdefault(
+                row.id, BrowserSession(id=row.id, expires=row.expires)
+            )
+            session.user_id = user.id
+            session.owner_id = row.scope_id
+            session.auth_session_id = row.id
+        return session
+    if settings().auth_required:
+        raise AppError("AUTHENTICATION_REQUIRED", "Sign in to a durable research account.", 401)
+    session = store.get(request, response)
+    scope = ensure_scope(db, token_hash(session.id))
+    if scope.user_id is not None:
+        raise AppError(
+            "LEGACY_SESSION_REVOKED", "This legacy workspace has been claimed. Sign in again.", 401
+        )
+    db.commit()
+    return session
+
+
+def enforce_required_auth(request: Request, db: Session = Depends(get_db)):
+    if not settings().auth_required:
+        return
+    public = {
+        "/api/health",
+        "/api/health/live",
+        "/api/health/ready",
+        "/api/auth/me",
+        "/api/auth/register",
+        "/api/auth/login",
+        "/api/auth/logout",
+        "/api/auth/recover",
+    }
+    if request.url.path not in public:
+        from .identity import AUTH_COOKIE, authenticate
+
+        authenticate(db, request.cookies.get(AUTH_COOKIE))

@@ -30,6 +30,8 @@ jobs:
       - run: ruff format --check backend data/sample/generate.py
       - run: pytest -c backend/pyproject.toml backend/tests -q
       - run: alembic -c backend/alembic.ini upgrade head
+      - name: Durable identity restart and cross-user recovery slice
+        run: python backend/scripts/identity_smoke.py
       - name: PostgreSQL-backed Phase 1 and Phase 2 vertical slice
         run: python backend/scripts/smoke_phase2.py
       - name: PostgreSQL-backed Phase 3 models and reproduction

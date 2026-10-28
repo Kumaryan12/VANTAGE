@@ -240,7 +240,7 @@ def register(db, owner, body: RegisterModel, *, commit=True):
     return row
 
 
-def review(db, row, body):
+def review(db, row, body, actor=None):
     if body.status not in TRANSITIONS[row.status]:
         raise AppError(
             "GOVERNANCE_TRANSITION",
@@ -288,7 +288,8 @@ def review(db, row, body):
                 "previous_status": previous,
                 "new_status": body.status,
                 "rationale": redact(body.rationale),
-                "reviewer_session": row.owner,
+                "reviewer_session": actor.auth_session_id if actor and actor.user_id else row.owner,
+                "reviewer_user_id": actor.user_id if actor else None,
                 "actor": "authorized session human confirmation",
                 "approval_scope": body.approval_scope,
                 "human_review": True,

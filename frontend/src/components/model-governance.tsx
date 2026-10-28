@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { Identity } from "./account-security";
 import { ErrorNotice } from "./error-notice";
 type ReviewModel = {
   id: string;
@@ -39,6 +40,24 @@ export function ModelGovernance({
   refreshKey: string;
 }) {
   const client = useQueryClient();
+  const identity = useQuery({
+    queryKey: ["identity"],
+    queryFn: () => api<Identity>("/auth/me"),
+  });
+  const [reviewer, setReviewer] = useState("");
+  const assignment = useMutation({
+    mutationFn: () =>
+      api(`/v1/governance/models/${model?.id}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewer_id: reviewer, active: true }),
+      }),
+    onSuccess: () => {
+      setReviewer("");
+      refresh();
+    },
+  });
+
   const [selected, setSelected] = useState("");
   const [next, setNext] = useState("");
   const [rationale, setRationale] = useState("");
@@ -123,12 +142,34 @@ export function ModelGovernance({
       <div className="evidence-body">
         <p className="form-help">
           Feasible single allocations register as candidates. Synthetic and
-          in-sample results cannot establish real-market approval. This
-          session-bound workflow has no durable reviewer identity or enterprise
-          maker-checker. The assistant can read status; it cannot submit
-          decisions.
+          in-sample results cannot establish real-market approval.{" "}
+          {identity.data?.authenticated
+            ? "Validation and approval require a different explicitly assigned durable research reviewer; creators cannot approve themselves. This local workflow is not regulatory certification."
+            : "Legacy guest review is local and session-bound, without an independent reviewer identity."}{" "}
+          The assistant can read status; it cannot submit decisions.
         </p>
         {models.error && <ErrorNotice error={models.error} />}
+        {identity.data?.user?.roles.includes("RESEARCH_ADMIN") && model && (
+          <div className="account-form">
+            <label>
+              Explicit research reviewer account ID
+              <input
+                aria-label="Governance reviewer account"
+                value={reviewer}
+                onChange={(e) => setReviewer(e.target.value)}
+                maxLength={36}
+              />
+            </label>
+            <button
+              className="button secondary"
+              disabled={assignment.isPending || reviewer.length !== 36}
+              onClick={() => assignment.mutate()}
+            >
+              Assign independent reviewer
+            </button>
+            {assignment.error && <ErrorNotice error={assignment.error} />}
+          </div>
+        )}
         <label>
           Registered model
           <select

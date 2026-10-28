@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   QueryClient,
@@ -57,6 +57,7 @@ import { StressLab } from "./stress-lab";
 import { RiskRuns } from "./risk-runs";
 import { ResearchTerminal } from "./research-terminal";
 import { AIAssistant } from "./ai-assistant";
+import { AccountSecurity, type Identity } from "./account-security";
 import { OptimizationTerminal } from "./optimization-terminal";
 
 type Tab =
@@ -68,6 +69,7 @@ type Tab =
   | "Data Sources"
   | "Quantitative Research"
   | "AI Risk Assistant"
+  | "Account & Security"
   | "Portfolio Optimization";
 const nav = [
   { name: "Overview", icon: LayoutDashboard },
@@ -78,6 +80,7 @@ const nav = [
   { name: "Quantitative Research", icon: BarChart3 },
   { name: "Portfolio Optimization", icon: SlidersHorizontal },
   { name: "AI Risk Assistant", icon: Bot },
+  { name: "Account & Security", icon: LockKeyhole },
   { name: "Data Sources", icon: Database },
 ] as const;
 
@@ -103,6 +106,13 @@ export default function Dashboard() {
 
 function Workspace() {
   const queryClient = useQueryClient();
+  useEffect(() => {
+    const refresh = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener("pageshow", refresh);
+    return () => window.removeEventListener("pageshow", refresh);
+  }, []);
   const [tab, setTab] = useState<Tab>("Overview");
   const [mode, setMode] = useState<"demo" | "kite">("demo");
   const [confidence, setConfidence] = useState("0.95");
@@ -110,7 +120,14 @@ function Workspace() {
   const [dataset, setDataset] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
   const [logoutError, setLogoutError] = useState<Error | null>(null);
+  const identity = useQuery({
+    queryKey: ["identity"],
+    queryFn: () => api<Identity>("/auth/me"),
+  });
   const session = useQuery({
+    enabled:
+      !!identity.data &&
+      (identity.data.authenticated || !identity.data.authentication_required),
     queryKey: ["session"],
     queryFn: () =>
       api<{ kite_configured: boolean; kite_connected: boolean }>("/session"),
@@ -243,13 +260,22 @@ function Workspace() {
                 : "Analytics API unavailable"}
             <span>v0.4</span>
           </div>
-          <div className="profile">
+          <button
+            className="profile"
+            aria-label="Manage research account"
+            onClick={() => setTab("Account & Security")}
+          >
             <div className="avatar">VR</div>
             <div>
-              VANTAGE Research<small>Local workspace</small>
+              VANTAGE Research
+              <small>
+                {identity.data?.authenticated
+                  ? "Authenticated workspace"
+                  : "Temporary local guest"}
+              </small>
             </div>
             <ChevronDown size={14} />
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -440,6 +466,8 @@ function Workspace() {
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
             />
+          ) : tab === "Account & Security" ? (
+            <AccountSecurity />
           ) : tab === "Portfolio Optimization" ? (
             <OptimizationTerminal
               key={mode + dataset}

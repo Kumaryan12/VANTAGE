@@ -21,7 +21,7 @@ class Base(DeclarativeBase):
 class Dataset(Base):
     __tablename__ = "datasets"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     provenance: Mapped[dict] = mapped_column(JSON)
     records: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -30,7 +30,7 @@ class Dataset(Base):
 class RiskRun(Base):
     __tablename__ = "risk_runs"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     input_hash: Mapped[str] = mapped_column(String(64))
     methodology: Mapped[str] = mapped_column(String(64))
     result: Mapped[dict] = mapped_column(JSON)
@@ -46,7 +46,7 @@ class PortfolioSnapshot(Base):
     __tablename__ = "portfolio_snapshots"
     __table_args__ = (UniqueConstraint("owner", "content_hash"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     content_hash: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -56,7 +56,7 @@ class RiskInputArtifact(Base):
     __tablename__ = "risk_input_artifacts"
     __table_args__ = (UniqueConstraint("owner", "content_hash"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     content_hash: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -65,7 +65,7 @@ class RiskInputArtifact(Base):
 class ResearchExperiment(Base):
     __tablename__ = "research_experiments"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     status: Mapped[str] = mapped_column(String(20))
     stage: Mapped[str] = mapped_column(String(150))
     progress: Mapped[int] = mapped_column(Integer)
@@ -89,7 +89,7 @@ class ResearchExperiment(Base):
 class ForecastModel(Base):
     __tablename__ = "forecast_models"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     experiment_id: Mapped[str] = mapped_column(ForeignKey("research_experiments.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20))
     role: Mapped[str] = mapped_column(String(20))
@@ -109,7 +109,7 @@ class ModelGovernanceEvent(Base):
     __tablename__ = "model_governance_events"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     model_id: Mapped[str] = mapped_column(ForeignKey("forecast_models.id"), index=True)
-    owner: Mapped[str] = mapped_column(String(64))
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -117,7 +117,7 @@ class ModelGovernanceEvent(Base):
 class AgentInvestigation(Base):
     __tablename__ = "agent_investigations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     status: Mapped[str] = mapped_column(String(20))
     stage: Mapped[str] = mapped_column(String(100))
     runner_id: Mapped[str] = mapped_column(String(36))
@@ -163,7 +163,7 @@ class AgentEvidence(Base):
 class AgentEvaluation(Base):
     __tablename__ = "agent_evaluations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     status: Mapped[str] = mapped_column(String(20))
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -172,7 +172,7 @@ class AgentEvaluation(Base):
 class ResearchDocument(Base):
     __tablename__ = "research_documents"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     filename: Mapped[str] = mapped_column(String(200))
     content_hash: Mapped[str] = mapped_column(String(64))
     source: Mapped[str] = mapped_column(String(200))
@@ -191,7 +191,7 @@ class ResearchDocument(Base):
 class ResearchDocumentChunk(Base):
     __tablename__ = "research_document_chunks"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     document_id: Mapped[str] = mapped_column(ForeignKey("research_documents.id"), index=True)
     page: Mapped[int] = mapped_column(Integer)
     section: Mapped[str] = mapped_column(String(150))
@@ -205,7 +205,7 @@ class ResearchDocumentChunk(Base):
 class OptimizationRun(Base):
     __tablename__ = "optimization_runs"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     kind: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20))
     stage: Mapped[str] = mapped_column(String(150))
@@ -228,7 +228,7 @@ class OptimizationRun(Base):
 class OptimizationCounterfactual(Base):
     __tablename__ = "optimization_counterfactuals"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("optimization_runs.id"), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -238,7 +238,7 @@ class GovernanceModel(Base):
     __tablename__ = "governance_models"
     __table_args__ = (UniqueConstraint("owner", "source_type", "source_id"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     source_type: Mapped[str] = mapped_column(String(20))
     source_id: Mapped[str] = mapped_column(String(36))
     model_type: Mapped[str] = mapped_column(String(80))
@@ -252,7 +252,86 @@ class GovernanceModel(Base):
 class GovernanceReviewEvent(Base):
     __tablename__ = "governance_review_events"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    owner: Mapped[str] = mapped_column(String(64), index=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
     model_id: Mapped[str] = mapped_column(ForeignKey("governance_models.id"), index=True)
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(512))
+    active: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    preferred_scope: Mapped[str | None] = mapped_column(String(64))
+
+
+class OwnershipScope(Base):
+    __tablename__ = "ownership_scopes"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    scope_id: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires: Mapped[int] = mapped_column(Integer, index=True)
+    last_seen: Mapped[int] = mapped_column(Integer)
+    revoked: Mapped[int] = mapped_column(Integer, default=0)
+    oauth_state_hash: Mapped[str | None] = mapped_column(String(64))
+    oauth_state_expires: Mapped[int | None] = mapped_column(Integer)
+
+
+class Role(Base):
+    __tablename__ = "roles"
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+
+class UserRoleAssignment(Base):
+    __tablename__ = "user_role_assignments"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    role: Mapped[str] = mapped_column(ForeignKey("roles.name"), primary_key=True)
+
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    target_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class AuthThrottle(Base):
+    __tablename__ = "auth_throttles"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    bucket: Mapped[int] = mapped_column(Integer, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer)
+
+
+class RecoveryToken(Base):
+    __tablename__ = "recovery_tokens"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    expires: Mapped[int] = mapped_column(Integer)
+    used: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ReviewAssignment(Base):
+    __tablename__ = "review_assignments"
+    model_id: Mapped[str] = mapped_column(ForeignKey("governance_models.id"), primary_key=True)
+    reviewer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    assigned_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    active: Mapped[int] = mapped_column(Integer, default=1)

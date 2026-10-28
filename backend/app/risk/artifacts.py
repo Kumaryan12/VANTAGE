@@ -42,6 +42,9 @@ def payload_frame(payload: dict) -> tuple[pd.DataFrame, Provenance]:
 
 
 def persist_inputs(db: Session, portfolio: Portfolio, payload: dict, owner: str):
+    from app.auth.identity import ensure_scope
+
+    ensure_scope(db, owner)
     snapshot_payload = portfolio.model_dump(mode="json")
     # Exact stored snapshot, including retrieval metadata, is part of replay identity.
     snapshot_hash = digest(snapshot_payload)

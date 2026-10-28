@@ -425,6 +425,9 @@ class EvaluationQueue:
         self.futures = {}
 
     def submit(self, db, owner):
+        from app.auth.identity import ensure_scope
+
+        ensure_scope(db, owner)
         previous = db.scalars(
             select(AgentEvaluation.created_at)
             .where(AgentEvaluation.owner == owner)

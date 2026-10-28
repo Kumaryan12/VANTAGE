@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from kiteconnect.exceptions import KiteException
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from app.auth.sessions import BrowserSession, browser_session, store
@@ -39,12 +39,12 @@ Adjustment = Literal["split_dividend_adjusted", "unadjusted", "unknown"]
 
 
 def owner(session: BrowserSession):
-    return hashlib.sha256(session.id.encode()).hexdigest()
+    return session.owner_id or hashlib.sha256(session.id.encode()).hexdigest()
 
 
 @router.get("/health")
 def health(request: Request, db: DB):
-    from app.database.models import AgentToolCall, GovernanceModel, OptimizationRun
+    from app.database.models import AgentToolCall, AuthSession, GovernanceModel, OptimizationRun
 
     try:
         db.execute(text("SELECT 1"))
@@ -56,6 +56,7 @@ def health(request: Request, db: DB):
         db.execute(select(AgentToolCall.sequence).limit(1))
         db.execute(select(OptimizationRun.id).limit(1))
         db.execute(select(GovernanceModel.id).limit(1))
+        db.execute(select(AuthSession.id).limit(1))
     except Exception:
         raise AppError(
             "DATABASE_UNAVAILABLE", "Database unavailable or migrations have not been applied.", 503
@@ -211,12 +212,20 @@ def macro(
 
 
 @router.get("/auth/kite/login")
-def kite_login(request: Request):
+def kite_login(request: Request, db: DB):
     response = RedirectResponse("/", status_code=303)
-    session = store.get(request, response)
+    session = browser_session(request, response, db)
     client = new_client()
     session.state = secrets.token_urlsafe(32)
     session.state_expires = time.time() + 600
+    if session.user_id:
+        from app.auth.identity import token_hash
+        from app.database.models import AuthSession
+
+        row = db.get(AuthSession, session.auth_session_id)
+        row.oauth_state_hash = token_hash(session.state)
+        row.oauth_state_expires = int(session.state_expires)
+        db.commit()
     response.headers["location"] = (
         client.login_url()
         + "&"
@@ -228,12 +237,33 @@ def kite_login(request: Request):
 @router.get("/auth/kite/callback")
 def kite_callback(
     request: Request,
+    db: DB,
     request_token: str = Query(min_length=1, max_length=512),
     state: str = Query(min_length=1, max_length=128),
 ):
     response = RedirectResponse(settings().frontend_url + "/?connected=kite", status_code=303)
-    session = store.get(request, response)
-    store.consume_state(session, state)
+    session = browser_session(request, response, db)
+    if session.user_id:
+        from app.auth.identity import token_hash
+        from app.database.models import AuthSession
+
+        used = db.execute(
+            update(AuthSession)
+            .where(
+                AuthSession.id == session.auth_session_id,
+                AuthSession.oauth_state_hash == token_hash(state),
+                AuthSession.oauth_state_expires > int(time.time()),
+                AuthSession.revoked == 0,
+            )
+            .values(oauth_state_hash=None, oauth_state_expires=None)
+        ).rowcount
+        db.commit()
+        if not used:
+            raise AppError(
+                "INVALID_AUTH_STATE", "Broker login state is missing, expired or invalid.", 400
+            )
+    else:
+        store.consume_state(session, state)
     try:
         data = new_client().generate_session(request_token, api_secret=settings().kite_api_secret)
         session.kite_token = data["access_token"]

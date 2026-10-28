@@ -105,6 +105,16 @@ Install current locked dependencies (CVXPY/CLARABEL), apply migrations through *
 
 [Methodology](docs/optimization_methodology.md) · [constraints](docs/optimization_constraints.md) · [architecture](docs/optimization_architecture.md) · [governance](docs/model_governance.md) · [executed synthetic report](docs/research/portfolio_optimization_validation.md) · [validation commands](docs/optimization_validation.md).
 
+## Phase 6 — production engineering in progress
+
+Stage A adds **Account & Security**, Argon2id local accounts, durable revocable sessions, private ownership workspaces, proof-bound legacy adoption and model-scoped independent reviewers. Apply migration **0009** after installing the current locked dependencies. Public registration grants USER only; trusted administrators provision privileged roles. See [authentication and recovery](docs/authentication.md), [authorization](docs/authorization.md), and [the Phase 6 audit](docs/phase6_audit.md).
+
+The first durable-identity workflow has been executed on disposable PostgreSQL: create/login, save risk and optimization, logout, stop/restart the backend, re-login, retrieve identical records and reproduce inputs, then deny a second user. Reproduce with `DATABASE_URL=… backend/.venv/bin/python backend/scripts/identity_smoke.py` after migration. It creates explicitly synthetic test users/runs.
+
+Local guest mode remains temporary; claiming requires the still-live original session alongside a durable login. Expired/lost pre-upgrade sessions cannot be inferred or automatically recovered. Existing owner keys and financial hashes are retained as workspaces. Authenticated model validation/approval requires a different explicitly assigned reviewer; platform administration grants no confidential financial-data access.
+
+**Remaining stages:** encrypted credentials/storage and deletion, durable workers/distributed quotas, full container/TLS deployment, backup/restore, observability, load/security validation and final readiness evidence. These are not yet claimed complete. No public deployment, paid call or trading is introduced.
+
 ## Start locally
 
 Requirements: Python **3.12+** (the locked NumPy/SciPy versions require 3.12+), Node **22+**, npm. Demo requires no API keys or running PostgreSQL instance. Commands below start from the repository root.

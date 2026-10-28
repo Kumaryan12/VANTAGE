@@ -105,6 +105,9 @@ def canonical_records(frame: pd.DataFrame) -> str:
 
 
 def persist_history(db: Session, frame: pd.DataFrame, source: str, adjustment: str, owner: str):
+    from app.auth.identity import ensure_scope
+
+    ensure_scope(db, owner)
     from uuid import uuid4
 
     frame = validate_history(frame)

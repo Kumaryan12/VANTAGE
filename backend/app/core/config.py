@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{ROOT / 'vantage.db'}"
     frontend_url: str = "http://localhost:3000"
     cookie_secure: bool = False
+    auth_required: bool = False
+    registration_enabled: bool = True
+    auth_session_hours: int = Field(12, ge=1, le=168)
+    auth_idle_minutes: int = Field(60, ge=5, le=1440)
     kite_api_key: str = ""
     kite_api_secret: str = ""
     alpha_vantage_api_key: str = ""

@@ -3,7 +3,7 @@ import logging
 import time
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -11,20 +11,24 @@ from app.api.advanced_risk import router as advanced_router
 from app.api.agent import router as agent_router
 from app.api.documents import router as documents_router
 from app.api.governance import router as governance_router
+from app.api.identity import router as identity_router
 from app.api.ml import router as ml_router
 from app.api.optimization import router as optimization_router
 from app.api.routes import router
+from app.auth.sessions import enforce_required_auth
 from app.core.config import settings
 from app.core.errors import AppError
 
 app = FastAPI(
     title="VANTAGE",
+    dependencies=[Depends(enforce_required_auth)],
     version="0.5.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url=None,
 )
 app.include_router(router)
+app.include_router(identity_router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
 app.include_router(optimization_router)
