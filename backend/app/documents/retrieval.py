@@ -89,6 +89,9 @@ def search(db, owner, request):
         ]
         if candidates:
             try:
+                from app.jobs.quotas import reserve
+
+                reserve(db.get_bind(), owner, "embeddings", token_reservation=1_000_000)
                 vectors, usage = configured_embedder().embed([request.query])
                 vector = np.asarray(vectors[0], dtype=float)
                 matrix = np.asarray([rows[i][0].embedding for i in candidates], dtype=float)

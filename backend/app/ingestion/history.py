@@ -112,6 +112,9 @@ def persist_history(db: Session, frame: pd.DataFrame, source: str, adjustment: s
 
     frame = validate_history(frame)
     records = canonical_records(frame)
+    from app.storage.service import reserve_sources
+
+    reserve_sources(db, owner, len(records.encode()))
     now = datetime.now(UTC)
     provenance = Provenance(
         source=source,

@@ -9,7 +9,7 @@ export function AccountStorage() {
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const credentials = useQuery({ queryKey: ["account-credentials"], queryFn: () => api<{ id: string; provider: string; expires: number; revoked: boolean }[]>("/auth/credentials") });
-  const storage = useQuery({ queryKey: ["account-storage"], queryFn: () => api<{ private_object_bytes: number; private_object_quota_bytes: number; scope: string }>("/v1/storage/usage") });
+  const storage = useQuery({ queryKey: ["account-storage"], queryFn: () => api<{ private_object_bytes: number; private_object_quota_bytes: number; sql_source_bytes: number; sql_source_quota_bytes: number; scope: string }>("/v1/storage/usage") });
   const revoke = useMutation({ mutationFn: (id: string) => api(`/auth/credentials/${id}/revoke`, { method: "POST" }), onSuccess: () => { void credentials.refetch(); } });
   const deletion = useMutation({ mutationFn: () => api("/v1/storage/workspace-deletion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation, acknowledge_backup_retention: acknowledged }) }), onSuccess: () => { client.clear(); window.location.reload(); } });
   return <section className="panel">
@@ -22,6 +22,7 @@ export function AccountStorage() {
       {credentials.data?.map(c => <p key={c.id}>{c.provider} · {c.revoked ? "Locally revoked" : `Expires ${new Date(c.expires * 1000).toLocaleString("en-GB")}`} {!c.revoked && <button className="text-button" disabled={revoke.isPending} onClick={() => revoke.mutate(c.id)}>Revoke stored authorization</button>}</p>)}
       {storage.error && <ErrorNotice error={storage.error} />}
       {storage.data && <p>Private objects: {(storage.data.private_object_bytes / 1048576).toFixed(2)} / {(storage.data.private_object_quota_bytes / 1048576).toFixed(0)} MiB. {storage.data.scope}</p>}
+      {storage.data && <p>SQL sources, histories and snapshots: {(storage.data.sql_source_bytes / 1048576).toFixed(2)} / {(storage.data.sql_source_quota_bytes / 1048576).toFixed(0)} MiB. Other SQL output records and infrastructure disk space require operational monitoring.</p>}
       <p className="form-help">Saved source and model artifacts stay available for reproduction until explicitly deleted. Temporary exports expire after 30 days. Lost legacy ownership cannot be recovered automatically. Encrypted offline backups follow their own retention period; deletion does not erase those copies immediately.</p>
       <details><summary>Delete current workspace data</summary>
         <p>This removes this workspace&apos;s saved risk, models, documents and search indexes, investigations, optimizations, governance evidence and private artifacts. Stop active jobs first. Your account and other workspaces remain available.</p>

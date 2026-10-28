@@ -377,3 +377,37 @@ class DeletionRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     outcome: Mapped[dict] = mapped_column(JSON)
+
+
+class OperationGate(Base):
+    __tablename__ = "operation_gates"
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    paused: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class BackgroundJob(Base):
+    __tablename__ = "background_jobs"
+    __table_args__ = (UniqueConstraint("owner", "kind", "idempotency_key"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    owner: Mapped[str] = mapped_column(ForeignKey("ownership_scopes.id"), index=True)
+    principal: Mapped[str] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    target_id: Mapped[str] = mapped_column(String(36), index=True)
+    input_reference: Mapped[dict] = mapped_column(JSON)
+    input_hash: Mapped[str] = mapped_column(String(64))
+    idempotency_key: Mapped[str] = mapped_column(String(80))
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    worker_id: Mapped[str | None] = mapped_column(String(100))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    timeout_seconds: Mapped[int] = mapped_column(Integer)
+    failure: Mapped[dict | None] = mapped_column(JSON)
+    result_reference: Mapped[dict | None] = mapped_column(JSON)
+    attempt_history: Mapped[list] = mapped_column(JSON, default=list)

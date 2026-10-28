@@ -12,6 +12,7 @@ from app.api.agent import router as agent_router
 from app.api.documents import router as documents_router
 from app.api.governance import router as governance_router
 from app.api.identity import router as identity_router
+from app.api.jobs import router as jobs_router
 from app.api.ml import router as ml_router
 from app.api.optimization import router as optimization_router
 from app.api.routes import router
@@ -31,6 +32,7 @@ app = FastAPI(
 app.include_router(router)
 app.include_router(identity_router)
 app.include_router(storage_router)
+app.include_router(jobs_router)
 app.include_router(advanced_router)
 app.include_router(ml_router)
 app.include_router(optimization_router)
@@ -57,7 +59,10 @@ def error_response(request: Request, code: str, message: str, status: int, detai
 @app.middleware("http")
 async def request_boundary(request: Request, call_next):
     request.state.request_id = str(uuid4())
-    if request.method == "POST" and request.url.path == "/api/v1/research/documents":
+    if request.method == "POST" and request.url.path in {
+        "/api/v1/research/documents",
+        "/api/history/import",
+    }:
         # Bound the complete multipart stream before FastAPI can spool an oversized file.
         upload_limit = 6 * 1024 * 1024
         body = bytearray()
@@ -66,7 +71,7 @@ async def request_boundary(request: Request, call_next):
                 return error_response(
                     request,
                     "DOCUMENT_SIZE",
-                    "Multipart PDF upload exceeds 6 MB including metadata.",
+                    "Multipart upload exceeds 6 MB including metadata.",
                     413,
                 )
             body.extend(chunk)

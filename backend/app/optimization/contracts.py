@@ -169,7 +169,9 @@ class VirtualPortfolio(Portfolio):
 class OptimizationJob(StrictModel):
     id: str
     kind: Literal["single", "frontier", "sensitivity"]
-    status: Literal["queued", "running", "completed", "partial", "failed", "interrupted"]
+    status: Literal[
+        "queued", "running", "completed", "partial", "failed", "cancelled", "interrupted"
+    ]
     stage: str
     progress: int
     synthetic: bool

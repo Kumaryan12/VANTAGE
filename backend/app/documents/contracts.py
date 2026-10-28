@@ -25,7 +25,9 @@ class DocumentSummary(StrictModel):
     reporting_period: str | None
     publication_date: date | None
     uploaded_at: datetime
-    status: Literal["queued", "processing", "ready", "failed", "deleted", "interrupted"]
+    status: Literal[
+        "queued", "processing", "ready", "failed", "deleted", "cancelled", "interrupted"
+    ]
     page_count: int
     chunk_count: int
     version: str

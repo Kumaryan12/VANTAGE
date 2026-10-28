@@ -101,9 +101,12 @@ def risk(
     window: int = Query(252, ge=60, le=1260),
     dataset_id: str | None = None,
 ):
-    return risk_for_portfolio(
-        db, snapshot(mode, session), owner(session), dataset_id, confidence, window
-    )
+    from app.api.advanced_risk import calculation_slot
+
+    with calculation_slot(db):
+        return risk_for_portfolio(
+            db, snapshot(mode, session), owner(session), dataset_id, confidence, window
+        )
 
 
 @router.get("/history")
@@ -147,6 +150,9 @@ class AlphaImport(BaseModel):
 
 @router.post("/history/alpha-vantage", status_code=201)
 def import_alpha(body: AlphaImport, session: Browser, db: DB):
+    from app.jobs.quotas import reserve
+
+    reserve(db.get_bind(), owner(session), "market-data")
     frame = providers.adjusted_history(body.mapping, body.currency)
     mapping_note = ", ".join(f"{k}={v}" for k, v in body.mapping.items())
     return persist_history(
@@ -208,16 +214,27 @@ def sources():
 
 @router.get("/context/fx")
 def fx(
+    session: Browser,
+    db: DB,
     base: str = Query("USD", pattern=r"^[A-Z]{3}$"),
     quote: str = Query("INR", pattern=r"^[A-Z]{3}$"),
 ):
+    from app.jobs.quotas import reserve
+
+    reserve(db.get_bind(), owner(session), "fx")
     return providers.fx(base, quote)
 
 
 @router.get("/context/macro")
 def macro(
-    series_id: str = Query("VIXCLS", pattern=r"^[A-Z0-9_]{1,30}$"), vintage: date | None = None
+    session: Browser,
+    db: DB,
+    series_id: str = Query("VIXCLS", pattern=r"^[A-Z0-9_]{1,30}$"),
+    vintage: date | None = None,
 ):
+    from app.jobs.quotas import reserve
+
+    reserve(db.get_bind(), owner(session), "macro")
     return providers.macro(series_id, vintage or datetime.now(UTC).date())
 
 

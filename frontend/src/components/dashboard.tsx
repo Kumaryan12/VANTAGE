@@ -57,6 +57,7 @@ import { StressLab } from "./stress-lab";
 import { RiskRuns } from "./risk-runs";
 import { ResearchTerminal } from "./research-terminal";
 import { AIAssistant } from "./ai-assistant";
+import { BackgroundJobs } from "./background-jobs";
 import { AccountSecurity, type Identity } from "./account-security";
 import { OptimizationTerminal } from "./optimization-terminal";
 
@@ -69,6 +70,7 @@ type Tab =
   | "Data Sources"
   | "Quantitative Research"
   | "AI Risk Assistant"
+  | "Background Jobs"
   | "Account & Security"
   | "Portfolio Optimization";
 const nav = [
@@ -80,6 +82,7 @@ const nav = [
   { name: "Quantitative Research", icon: BarChart3 },
   { name: "Portfolio Optimization", icon: SlidersHorizontal },
   { name: "AI Risk Assistant", icon: Bot },
+  { name: "Background Jobs", icon: LoaderCircle },
   { name: "Account & Security", icon: LockKeyhole },
   { name: "Data Sources", icon: Database },
 ] as const;
@@ -466,6 +469,8 @@ function Workspace() {
                 void queryClient.invalidateQueries({ queryKey: ["history"] });
               }}
             />
+          ) : tab === "Background Jobs" ? (
+            <BackgroundJobs selection={selection} />
           ) : tab === "Account & Security" ? (
             <AccountSecurity />
           ) : tab === "Portfolio Optimization" ? (

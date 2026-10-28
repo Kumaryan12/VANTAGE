@@ -36,6 +36,10 @@ class KiteBroker:
             raise AppError(
                 "KITE_AUTH_REQUIRED", "Connect an authorized Zerodha account first.", 401
             )
+        if self.session.user_id:
+            from app.jobs.quotas import reserve
+
+            reserve(self.session.database.get_bind(), self.session.owner_id, "kite")
         client = new_client()
         client.set_access_token(token)
         try:

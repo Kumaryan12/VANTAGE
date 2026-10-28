@@ -27,6 +27,8 @@ from app.database.models import (
 )
 from app.documents.contracts import DocumentMetadata
 from app.documents.service import queue as document_queue
+from app.jobs import service as jobs
+from app.jobs.lease import is_worker
 from app.ml.artifacts import runtime_versions
 from app.ml.contracts import ResearchRequest
 from app.ml.service import ResearchQueue
@@ -45,7 +47,11 @@ def owned_evaluation(db, ident, owner):
     row = db.get(AgentEvaluation, ident)
     if row is None or row.owner != owner:
         raise AppError("EVALUATION_NOT_FOUND", "Evaluation not found in this session.", 404)
-    if row.status in ("queued", "running") and ident not in queue.futures:
+    if (
+        row.status in ("queued", "running")
+        and ident not in queue.futures
+        and not jobs.tracked(db, ident)
+    ):
         row.status = "interrupted"
         row.payload = {
             **row.payload,
@@ -401,6 +407,8 @@ def evaluate(engine, report_id):
             }
             db.commit()
     except Exception as error:
+        if is_worker():
+            raise
         with Session(engine) as db:
             row = db.get(AgentEvaluation, report_id)
             row.status = "failed"
@@ -443,7 +451,8 @@ class EvaluationQueue:
                 "At most two golden evaluations per hour are permitted per local session.",
                 429,
             )
-        if not self.capacity.acquire(blocking=False):
+        local = not jobs.durable()
+        if local and not self.capacity.acquire(blocking=False):
             raise AppError("EVALUATION_BUSY", "A golden evaluation is already active.", 503)
         try:
             row = AgentEvaluation(
@@ -460,9 +469,13 @@ class EvaluationQueue:
                 created_at=datetime.now(UTC),
             )
             db.add(row)
+            durable_job = jobs.enqueue(db, "evaluation", row) if not local else None
             db.commit()
-            self.futures[row.id] = self.executor.submit(evaluate, db.get_bind(), row.id)
-            self.futures[row.id].add_done_callback(lambda _: self.capacity.release())
+            if durable_job is not None:
+                self.futures[row.id] = jobs.JobFuture(db.get_bind(), durable_job.id)
+            else:
+                self.futures[row.id] = self.executor.submit(evaluate, db.get_bind(), row.id)
+                self.futures[row.id].add_done_callback(lambda _: self.capacity.release())
             return {
                 "id": row.id,
                 "status": "queued",
@@ -470,7 +483,8 @@ class EvaluationQueue:
                 "payload": row.payload,
             }
         except Exception:
-            self.capacity.release()
+            if local:
+                self.capacity.release()
             raise
 
 

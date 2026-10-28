@@ -47,7 +47,9 @@ class ResearchRequest(StrictModel):
 
 class JobSummary(StrictModel):
     id: str
-    status: Literal["queued", "running", "completed", "partial", "failed", "interrupted"]
+    status: Literal[
+        "queued", "running", "completed", "partial", "failed", "cancelled", "interrupted"
+    ]
     progress: int
     stage: str
     created_at: datetime

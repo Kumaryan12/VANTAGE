@@ -40,6 +40,15 @@ from .service import delete as delete_object
 
 def begin_delete(db, owner, user_id):
     scope = write_scope(db, owner)
+    from app.database.models import BackgroundJob
+    from app.jobs.service import ACTIVE
+
+    if db.scalar(
+        select(BackgroundJob.id)
+        .where(BackgroundJob.owner == owner, BackgroundJob.status.in_(ACTIVE))
+        .limit(1)
+    ):
+        raise AppError("DELETION_ACTIVE_JOBS", "Stop active durable jobs before deletion.", 409)
     if scope.user_id != user_id:
         raise AppError("WORKSPACE_NOT_FOUND", "Workspace not found in this account.", 404)
     for model, statuses in (
@@ -132,7 +141,10 @@ def execute_delete(db, request):
             credential.ciphertext = ""
             credential.revoked = 1
         counts = {}
+        from app.database.models import BackgroundJob
+
         for model, condition in (
+            (BackgroundJob, BackgroundJob.owner == owner),
             (ResearchForecast, ResearchForecast.model_id.in_(model_ids)),
             (ModelGovernanceEvent, ModelGovernanceEvent.owner == owner),
             (ForecastModel, ForecastModel.owner == owner),

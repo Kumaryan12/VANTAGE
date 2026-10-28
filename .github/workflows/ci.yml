@@ -16,6 +16,10 @@ jobs:
           POSTGRES_PASSWORD: ci_test_only
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U vantage -d vantage_test" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:8.2-alpine
+        ports: ["56379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
     env:
       DATABASE_URL: postgresql+psycopg://vantage:ci_test_only@localhost:5432/vantage_test
     steps:
@@ -36,6 +40,11 @@ jobs:
           docker build -f infra/Dockerfile.parser-test -t vantage-parser-test:ci .
           docker run --rm --read-only --cap-drop=ALL --security-opt no-new-privileges=true --tmpfs /tmp:rw,noexec,nosuid,size=16m -v "$PWD/artifacts/phase6/parser-probe:/probe:ro" vantage-parser-test:ci
       - run: alembic -c backend/alembic.ini upgrade head
+      - name: Actual distributed job crash, cancellation, quotas and all task adapters
+        run: python backend/scripts/worker_smoke.py
+        env:
+          JOB_BACKEND: celery
+          REDIS_URL: redis://127.0.0.1:56379/0
       - name: Durable identity restart and cross-user recovery slice
         run: python backend/scripts/identity_smoke.py
       - name: PostgreSQL-backed Phase 1 and Phase 2 vertical slice

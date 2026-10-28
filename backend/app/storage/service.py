@@ -139,3 +139,38 @@ def finalize(db, parent_id, referenced):
             row.status = "published"
         else:
             delete(db, row)
+
+
+def reserve_sources(db, owner, additional_bytes):
+    """Separate account-wide bound for SQL-backed source/history/snapshot bytes."""
+    from sqlalchemy import LargeBinary, Text, cast
+
+    from app.database.models import Dataset, PortfolioSnapshot, RiskInputArtifact
+
+    scope = write_scope(db, owner)
+    if scope.user_id:
+        db.execute(select(User.id).where(User.id == scope.user_id).with_for_update())
+    owners = scope_owners(db, owner)
+    total = 0
+    with db.no_autoflush:
+        for model, column in (
+            (Dataset, Dataset.records),
+            (PortfolioSnapshot, PortfolioSnapshot.payload),
+            (RiskInputArtifact, RiskInputArtifact.payload),
+        ):
+            size = (
+                func.octet_length(cast(column, Text))
+                if db.get_bind().dialect.name == "postgresql"
+                else func.length(cast(column, LargeBinary))
+            )
+            total += int(
+                db.scalar(select(func.coalesce(func.sum(size), 0)).where(model.owner.in_(owners)))
+                or 0
+            )
+    if additional_bytes > 0 and total + additional_bytes > settings().source_quota_mb * 1024 * 1024:
+        raise AppError(
+            "SOURCE_STORAGE_QUOTA",
+            "Account SQL source/history/snapshot storage quota exceeded. No input is silently excluded.",
+            429,
+        )
+    return total

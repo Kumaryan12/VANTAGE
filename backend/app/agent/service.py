@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from contextvars import copy_context
 from datetime import UTC, datetime
 from threading import BoundedSemaphore, Event
 from uuid import uuid4
@@ -14,6 +15,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.errors import AppError
 from app.database.models import AgentEvidence, AgentInvestigation, AgentStep, AgentToolCall
+from app.jobs import service as jobs
+from app.jobs.lease import is_worker
 from app.portfolios.schemas import Portfolio
 from app.risk.artifacts import persist_inputs
 
@@ -228,7 +231,11 @@ def owned(db, ident, owner):
     row = db.get(AgentInvestigation, ident)
     if row is None or row.owner != owner:
         raise AppError("INVESTIGATION_NOT_FOUND", "Investigation not found in this session.", 404)
-    if row.status in ("queued", "running") and row.runner_id != RUNNER_ID:
+    if (
+        row.status in ("queued", "running")
+        and row.runner_id != RUNNER_ID
+        and not jobs.tracked(db, row.id)
+    ):
         row.status = "interrupted"
         row.stage = "Original process unavailable; submit a fresh investigation"
         row.finished_at = datetime.now(UTC)
@@ -287,7 +294,8 @@ class InvestigationQueue:
                 "At most 12 investigations per minute are permitted in this local session.",
                 429,
             )
-        if not self.capacity.acquire(blocking=False):
+        local = not jobs.durable()
+        if local and not self.capacity.acquire(blocking=False):
             raise AppError(
                 "AGENT_BUSY", "One bounded investigation is active; wait for it to finish.", 503
             )
@@ -344,8 +352,12 @@ class InvestigationQueue:
                 elapsed_seconds=None,
             )
             db.add(row)
+            durable_job = jobs.enqueue(db, "agent", row) if not local else None
             db.commit()
             result = summary(row)
+            if durable_job is not None:
+                self.futures[row.id] = jobs.JobFuture(db.get_bind(), durable_job.id)
+                return result
             event = Event()
             self.cancellations[row.id] = event
             self.futures[row.id] = self.executor.submit(self.execute, db.get_bind(), row.id, event)
@@ -355,10 +367,22 @@ class InvestigationQueue:
                     self.cancellations.pop(key, None)
             return result
         except Exception:
-            self.capacity.release()
+            if local:
+                self.capacity.release()
             raise
 
     def cancel(self, db, row):
+        from app.database.models import BackgroundJob
+
+        durable_job = db.scalar(
+            select(BackgroundJob).where(
+                BackgroundJob.target_id == row.id, BackgroundJob.owner == row.owner
+            )
+        )
+        if durable_job is not None:
+            jobs.cancel(db, durable_job)
+            db.refresh(row)
+            return summary(row)
         if row.status in ("queued", "running"):
             row.cancel_requested = 1
             db.commit()
@@ -449,6 +473,9 @@ class InvestigationQueue:
                         selection = default_selection(state.evidence)
                         break
                     if provider:
+                        from app.jobs.quotas import reserve
+
+                        reserve(engine, row.owner, "llm", token_reservation=1_000_000)
                         turn = provider.next(
                             row.question,
                             state.evidence,
@@ -560,6 +587,7 @@ class InvestigationQueue:
                                 }
                             )
                     future = self.tool_executor.submit(
+                        copy_context().run,
                         self.run_tool,
                         engine,
                         row.owner,
@@ -643,6 +671,8 @@ class InvestigationQueue:
                 row.elapsed_seconds = time.monotonic() - started
                 db.commit()
         except Exception as error:
+            if is_worker():
+                raise
             with Session(engine) as db:
                 row = db.get(AgentInvestigation, ident)
                 row.status = (
@@ -681,7 +711,8 @@ class InvestigationQueue:
                 )
             )
         finally:
-            self.capacity.release()
+            if not is_worker():
+                self.capacity.release()
 
     def document_resolver(self, db, owner):
         from app.documents.service import resolve_passage

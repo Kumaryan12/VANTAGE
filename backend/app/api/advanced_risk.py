@@ -27,13 +27,16 @@ capacity = BoundedSemaphore(1)
 
 
 @contextmanager
-def calculation_slot():
+def calculation_slot(db=None):
     if not capacity.acquire(blocking=False):
         raise AppError(
             "RISK_ENGINE_BUSY", "A bounded risk calculation is in progress. Retry shortly.", 503
         )
     try:
-        yield
+        from app.jobs.interactive import calculation_lease
+
+        with calculation_lease(db):
+            yield
     finally:
         capacity.release()
 
@@ -43,7 +46,7 @@ def calculation_slot():
 @router.post("/expected-shortfall", response_model=AnalysisResult, status_code=201)
 @router.post("/monte-carlo", response_model=AnalysisResult, status_code=201)
 def analysis(body: AnalysisRequest, session: Browser, db: DB):
-    with calculation_slot():
+    with calculation_slot(db):
         return run_analysis(db, snapshot(body.mode, session), owner(session), body)
 
 
@@ -65,7 +68,7 @@ def contributions(
 
 @router.post("/stress-test", response_model=StressResult, status_code=201)
 def stress(body: StressRequest, session: Browser, db: DB):
-    with calculation_slot():
+    with calculation_slot(db):
         return run_stress(db, snapshot(body.mode, session), owner(session), body)
 
 
@@ -99,5 +102,5 @@ def run(run_id: str, session: Browser, db: DB):
 
 @router.post("/runs/{run_id}/replay", response_model=ReplayResult)
 def replay(run_id: str, session: Browser, db: DB):
-    with calculation_slot():
+    with calculation_slot(db):
         return replay_run(db, run_id, owner(session))

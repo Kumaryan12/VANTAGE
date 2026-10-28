@@ -54,6 +54,9 @@ def persist_inputs(db: Session, portfolio: Portfolio, payload: dict, owner: str)
         )
     )
     if snapshot is None:
+        from app.storage.service import reserve_sources
+
+        reserve_sources(db, owner, len(json.dumps(snapshot_payload).encode()))
         snapshot = PortfolioSnapshot(
             id=str(uuid4()),
             owner=owner,
@@ -69,6 +72,11 @@ def persist_inputs(db: Session, portfolio: Portfolio, payload: dict, owner: str)
         )
     )
     if artifact is None:
+        from app.storage.service import reserve_sources
+
+        # Snapshot may still be pending; account for it explicitly before this flush.
+        pending = len(json.dumps(snapshot_payload).encode()) if snapshot in db.new else 0
+        reserve_sources(db, owner, pending + len(json.dumps(payload).encode()))
         artifact = RiskInputArtifact(
             id=str(uuid4()),
             owner=owner,
@@ -189,6 +197,15 @@ def persist_run(db: Session, result, owner: str):
             parameters=result.parameters.model_dump(mode="json"),
         )
     )
+    from app.jobs.lease import current
+
+    execution = current.get()
+    if execution is not None and execution.kind == "risk":
+        db.info["job_publication"] = {
+            "kind": "risk",
+            "target_id": result.run_id,
+            "result_hash": digest(result.model_dump(mode="json")),
+        }
     db.commit()
     return result
 

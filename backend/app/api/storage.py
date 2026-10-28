@@ -37,6 +37,8 @@ def usage(session: Browser, db: DB):
     return {
         "private_object_bytes": service.usage(db, owner(session)),
         "private_object_quota_bytes": settings().storage_quota_mb * 1024 * 1024,
+        "sql_source_bytes": service.reserve_sources(db, owner(session), 0),
+        "sql_source_quota_bytes": settings().source_quota_mb * 1024 * 1024,
         "scope": "All private objects across this account's owned workspaces; legacy/SQL evidence is tracked separately.",
         "offline_backup_deletion": "Follows backup retention, not immediate erasure.",
     }
@@ -57,6 +59,24 @@ def download(ident: str, session: Browser, db: DB):
             or parent.status not in ("completed", "partial")
         ):
             raise AppError("ARTIFACT_NOT_FOUND", "Published model artifact is unavailable.", 404)
+    if row.parent_id and row.category == "report":
+        from app.database.models import BackgroundJob
+        from app.jobs.workflows import source_payload
+        from app.risk.artifacts import digest
+
+        parent = db.get(BackgroundJob, row.parent_id)
+        if parent is None or parent.owner != row.owner or parent.status != "completed":
+            raise AppError("ARTIFACT_NOT_FOUND", "Published export source is unavailable.", 404)
+        source = parent.input_reference
+        if (
+            digest(source_payload(db, row.owner, source["source_type"], source["source_id"]))
+            != source["source_hash"]
+        ):
+            raise AppError(
+                "ARTIFACT_SOURCE_CHANGED",
+                "Export source changed or was deleted; this copy is unavailable.",
+                409,
+            )
     content = service.read_manifest(service.manifest(row), row.owner)
     return Response(
         content,

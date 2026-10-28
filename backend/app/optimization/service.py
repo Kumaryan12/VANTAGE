@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.database.models import OptimizationRun, PortfolioSnapshot, RiskInputArtifact
+from app.jobs import service as jobs
+from app.jobs.lease import is_worker
 from app.ml.artifacts import runtime_versions
 from app.portfolios.schemas import Portfolio
 from app.risk.artifacts import digest, persist_inputs
@@ -58,7 +60,11 @@ def owned(db, ident, owner):
     row = db.get(OptimizationRun, ident)
     if row is None or row.owner != owner:
         raise AppError("OPTIMIZATION_NOT_FOUND", "Optimization run not found in this session.", 404)
-    if row.status in ("queued", "running") and row.runner_id != RUNNER_ID:
+    if (
+        row.status in ("queued", "running")
+        and row.runner_id != RUNNER_ID
+        and not jobs.tracked(db, row.id)
+    ):
         row.status = "interrupted"
         row.stage = "Original optimization worker unavailable"
         row.finished_at = datetime.now(UTC)
@@ -238,7 +244,8 @@ class OptimizationQueue:
     def submit(
         self, db, portfolio, owner, parameters, *, kind="single", payload=None, reproduction_of=None
     ):
-        if not self.capacity.acquire(blocking=False):
+        local = not jobs.durable()
+        if local and not self.capacity.acquire(blocking=False):
             raise AppError(
                 "OPTIMIZATION_BUSY",
                 "One bounded optimization job is active; retry after it completes.",
@@ -282,15 +289,20 @@ class OptimizationQueue:
                 finished_at=None,
             )
             db.add(row)
+            durable_job = jobs.enqueue(db, "optimization", row) if not local else None
             db.commit()
             summary = job(row)
+            if durable_job is not None:
+                self.futures[row.id] = jobs.JobFuture(db.get_bind(), durable_job.id)
+                return summary
             self.futures[row.id] = self.executor.submit(self.execute, db.get_bind(), row.id)
             for key in list(self.futures)[:-64]:
                 if self.futures[key].done():
                     self.futures.pop(key, None)
             return summary
         except Exception:
-            self.capacity.release()
+            if local:
+                self.capacity.release()
             raise
 
     def execute(self, engine, ident):
@@ -367,6 +379,7 @@ class OptimizationQueue:
                     old = owned(db, row.reproduction_of, row.owner)
                     if old.result:
                         result["reproduction_match"] = reproduction_matches(old.result, result)
+                row.runtime = runtime()
                 row.dataset = points[0]["dataset"]
                 row.result = result
                 row.result_hash = digest(result)
@@ -396,6 +409,8 @@ class OptimizationQueue:
                     row.result_hash = digest(row.result)
                 db.commit()
         except Exception as error:
+            if is_worker():
+                raise
             with Session(engine) as db:
                 row = db.get(OptimizationRun, ident)
                 row.status = "failed"
@@ -409,7 +424,8 @@ class OptimizationQueue:
                 }
                 db.commit()
         finally:
-            self.capacity.release()
+            if not is_worker():
+                self.capacity.release()
 
 
 queue = OptimizationQueue()

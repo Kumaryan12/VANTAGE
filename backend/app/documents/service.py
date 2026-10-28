@@ -21,6 +21,8 @@ from app.database.models import (
     ResearchDocument,
     ResearchDocumentChunk,
 )
+from app.jobs import service as jobs
+from app.jobs.lease import is_worker
 
 from .contracts import DocumentSummary
 from .embeddings import configured_embedder
@@ -70,7 +72,11 @@ def owned_document(db, ident, owner, allow_deleted=False):
     row = db.get(ResearchDocument, ident)
     if row is None or row.owner != owner or (row.status == "deleted" and not allow_deleted):
         raise AppError("DOCUMENT_NOT_FOUND", "Document not found in this session.", 404)
-    if row.status in ("queued", "processing") and ident not in queue.futures:
+    if (
+        row.status in ("queued", "processing")
+        and ident not in queue.futures
+        and not jobs.tracked(db, ident)
+    ):
         row.status = "interrupted"
         row.error = {
             "code": "DOCUMENT_INTERRUPTED",
@@ -174,7 +180,8 @@ class DocumentQueue:
             raise AppError(
                 "DOCUMENT_DUPLICATE", "This PDF is already present in the current session.", 409
             )
-        if not self.capacity.acquire(blocking=False):
+        local = not jobs.durable()
+        if local and not self.capacity.acquire(blocking=False):
             raise AppError(
                 "DOCUMENT_BUSY", "One PDF is being processed; retry after it finishes.", 503
             )
@@ -217,15 +224,20 @@ class DocumentQueue:
                 error=None,
             )
             db.add(row)
+            durable_job = jobs.enqueue(db, "document", row) if not local else None
             db.commit()
             result = document_summary(row)
+            if durable_job is not None:
+                self.futures[ident] = jobs.JobFuture(db.get_bind(), durable_job.id)
+                return result
             self.futures[ident] = self.executor.submit(self.process, db.get_bind(), ident)
             for key in list(self.futures)[:-64]:
                 if self.futures[key].done():
                     self.futures.pop(key, None)
             return result
         except Exception:
-            self.capacity.release()
+            if local:
+                self.capacity.release()
             raise
 
     def process(self, engine, ident):
@@ -271,6 +283,9 @@ class DocumentQueue:
                                 raise AppError(
                                     "EMBEDDING_TIMEOUT", "Indexing embedding budget expired.", 504
                                 )
+                            from app.jobs.quotas import reserve
+
+                            reserve(engine, row.owner, "embeddings", token_reservation=1_000_000)
                             batch, usage = configured_embedder().embed(
                                 [c["text"] for c in chunks[start : start + 64]],
                                 timeout=min(12, deadline - time.monotonic()),
@@ -335,6 +350,8 @@ class DocumentQueue:
                 row.processing = processing
                 db.commit()
         except Exception as error:
+            if is_worker():
+                raise
             with Session(engine) as db:
                 row = db.get(ResearchDocument, ident)
                 if row is not None and row.status != "deleted":
@@ -349,7 +366,8 @@ class DocumentQueue:
                     }
                     db.commit()
         finally:
-            self.capacity.release()
+            if not is_worker():
+                self.capacity.release()
 
 
 queue = DocumentQueue()
@@ -371,6 +389,44 @@ def resolve_passage(db, owner, passage):
 
 
 def delete_document(db, row):
+    from app.auth.identity import write_scope
+    from app.database.models import BackgroundJob, PrivateArtifact
+    from app.jobs.service import ACTIVE, cancel
+    from app.storage.service import delete as delete_object
+
+    write_scope(db, row.owner)
+    # Do not race a final verifier/export that has already copied authorized quotes.
+    if db.scalar(
+        select(AgentInvestigation.id)
+        .where(
+            AgentInvestigation.owner == row.owner,
+            AgentInvestigation.status.in_(["queued", "running"]),
+        )
+        .limit(1)
+    ) or db.scalar(
+        select(BackgroundJob.id)
+        .where(
+            BackgroundJob.owner == row.owner,
+            BackgroundJob.kind == "report",
+            BackgroundJob.status.in_(ACTIVE),
+        )
+        .limit(1)
+    ):
+        raise AppError(
+            "DOCUMENT_IN_USE",
+            "Stop active investigations/exports before deleting source evidence.",
+            409,
+        )
+    own_job = db.scalar(
+        select(BackgroundJob).where(
+            BackgroundJob.target_id == row.id,
+            BackgroundJob.kind == "document",
+            BackgroundJob.owner == row.owner,
+        )
+    )
+    if own_job and own_job.status in ACTIVE:
+        cancel(db, own_job)
+    affected = set()
     db.execute(
         delete(ResearchDocumentChunk).where(
             ResearchDocumentChunk.document_id == row.id, ResearchDocumentChunk.owner == row.owner
@@ -417,6 +473,7 @@ def delete_document(db, row):
     ).all():
         answer = investigation.answer
         if any(c["document_id"] == row.id for c in answer.get("citations", [])):
+            affected.add(investigation.id)
             investigation.answer = {
                 **answer,
                 "citations": [
@@ -433,5 +490,22 @@ def delete_document(db, row):
                     "A cited document was deleted; affected citations are unavailable.",
                 ],
             }
+    for job in db.scalars(
+        select(BackgroundJob).where(
+            BackgroundJob.owner == row.owner, BackgroundJob.kind == "report"
+        )
+    ):
+        if (
+            job.input_reference.get("source_type") == "investigation"
+            and job.input_reference.get("source_id") in affected
+        ):
+            for artifact in db.scalars(
+                select(PrivateArtifact).where(
+                    PrivateArtifact.parent_id == job.id,
+                    PrivateArtifact.owner == row.owner,
+                    PrivateArtifact.status != "deleted",
+                )
+            ):
+                delete_object(db, artifact)
     db.commit()
     return document_summary(row)

@@ -63,7 +63,9 @@ def sweep(db, *, apply=False, now=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=["retention", "rotate-credential-keys"])
+    parser.add_argument(
+        "operation", choices=["retention", "rotate-credential-keys", "reconcile-files"]
+    )
     parser.add_argument(
         "--apply", action="store_true", help="Explicitly execute; default is dry run"
     )
@@ -73,6 +75,10 @@ def main():
     with Session(engine) as db:
         if args.operation == "retention":
             result = sweep(db, apply=args.apply)
+        elif args.operation == "reconcile-files":
+            from app.storage.reconcile import reconcile_files
+
+            result = reconcile_files(db, apply=args.apply)
         elif args.apply:
             from app.security.vault import rotate
 

@@ -20,6 +20,8 @@ from app.database.models import (
     ResearchForecast,
     RiskInputArtifact,
 )
+from app.jobs import service as jobs
+from app.jobs.lease import is_worker
 from app.ml.artifacts import artifact_zip, read_artifact, runtime_versions, writer
 from app.ml.contracts import (
     FEATURE_VERSION,
@@ -61,7 +63,11 @@ def owned_experiment(db, experiment_id, owner):
         raise AppError(
             "EXPERIMENT_NOT_FOUND", "Research experiment not found in the authorized session.", 404
         )
-    if exp.status in ("queued", "running") and exp.runner_id != RUNNER_ID:
+    if (
+        exp.status in ("queued", "running")
+        and exp.runner_id != RUNNER_ID
+        and not jobs.tracked(db, exp.id)
+    ):
         exp.status = "interrupted"
         exp.stage = "Worker process restarted"
         exp.finished_at = datetime.now(UTC)
@@ -155,7 +161,8 @@ class ResearchQueue:
         self.futures = {}
 
     def submit(self, db, portfolio, owner, parameters, payload=None, reproduction_of=None):
-        if not self.capacity.acquire(blocking=False):
+        local = not jobs.durable()
+        if local and not self.capacity.acquire(blocking=False):
             raise AppError(
                 "RESEARCH_BUSY",
                 "One bounded research job is already queued or running. Retry after it finishes.",
@@ -205,16 +212,21 @@ class ResearchQueue:
                 finished_at=None,
             )
             db.add(exp)
+            durable_job = jobs.enqueue(db, "research", exp) if not local else None
             db.commit()
             response = job_summary(exp)
             engine = db.get_bind()
+            if durable_job is not None:
+                self.futures[exp.id] = jobs.JobFuture(engine, durable_job.id)
+                return response
             self.futures[exp.id] = self.executor.submit(self._execute, engine, exp.id)
             for key in list(self.futures)[:-64]:
                 if self.futures[key].done():
                     self.futures.pop(key, None)
             return response
         except Exception:
-            self.capacity.release()
+            if local:
+                self.capacity.release()
             raise
 
     def _execute(self, engine, experiment_id):
@@ -317,6 +329,7 @@ class ResearchQueue:
                     reproduction_match = len(a) == len(b) and bool(
                         np.allclose(a, b, rtol=1e-8, atol=1e-14, equal_nan=True)
                     )
+                exp.runtime = {**exp.runtime, **runtime_versions()}
                 exp.summary = {
                     "comparison": result["comparison"],
                     "regimes": result["regimes"],
@@ -344,6 +357,8 @@ class ResearchQueue:
                 )
                 db.commit()
         except Exception as error:
+            if is_worker():
+                raise
             logger.error(
                 json.dumps(
                     {
@@ -366,7 +381,8 @@ class ResearchQueue:
                     }
                     db.commit()
         finally:
-            self.capacity.release()
+            if not is_worker():
+                self.capacity.release()
 
 
 queue = ResearchQueue()

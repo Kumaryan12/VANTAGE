@@ -24,8 +24,15 @@ class Settings(BaseSettings):
     s3_bucket: str = ""
     s3_endpoint_url: str = ""
     s3_region: str = "us-east-1"
+    source_quota_mb: int = Field(250, ge=10, le=10000)
     storage_quota_mb: int = Field(250, ge=10, le=10000)
     document_sandbox_required: bool = False
+    job_backend: str = "local"
+    redis_url: str = Field("redis://127.0.0.1:56379/0", repr=False)
+    provider_daily_reserved_tokens: int = Field(10_000_000, ge=1_000_000, le=100_000_000)
+    job_lease_seconds: int = Field(45, ge=10, le=300)
+    job_per_user_limit: int = Field(4, ge=1, le=20)
+    job_queue_limit: int = Field(100, ge=4, le=1000)
     auth_required: bool = False
     registration_enabled: bool = True
     auth_session_hours: int = Field(12, ge=1, le=168)
